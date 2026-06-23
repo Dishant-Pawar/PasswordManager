@@ -475,6 +475,7 @@ class DocumentTile extends StatelessWidget {
   final String size;
   final String type;
   final VoidCallback? onTap;
+  final VoidCallback? onDelete;
 
   const DocumentTile({
     super.key,
@@ -482,6 +483,7 @@ class DocumentTile extends StatelessWidget {
     required this.size,
     required this.type,
     this.onTap,
+    this.onDelete,
   });
 
   Color get _typeColor {
@@ -557,11 +559,21 @@ class DocumentTile extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: AppColors.textSecondary,
-              size: 20,
-            ),
+            if (onDelete != null)
+              IconButton(
+                icon: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: AppColors.error,
+                  size: 22,
+                ),
+                onPressed: onDelete,
+              )
+            else
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.textSecondary,
+                size: 20,
+              ),
           ],
         ),
       ),

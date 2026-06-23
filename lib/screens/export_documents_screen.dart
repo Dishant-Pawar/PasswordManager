@@ -1,10 +1,15 @@
 import 'dart:typed_data';
+import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:encrypt/encrypt.dart' as enc;
+import 'package:crypto/crypto.dart' as crypto;
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
+import '../services/database_helper.dart';
 
 class ExportDocumentsScreen extends StatefulWidget {
   const ExportDocumentsScreen({super.key});
@@ -43,13 +48,56 @@ class _ExportDocumentsScreenState extends State<ExportDocumentsScreen> {
       return;
     }
 
+    final passphrase = _passphraseCtrl.text;
     setState(() => _exporting = true);
-    await Future.delayed(const Duration(seconds: 2));
 
     try {
-      final data = 'ENCRYPTED_DOCUMENTS_DATA_SIMULATION_WITH_PASSPHRASE_PROTECTION';
-      final bytes = Uint8List.fromList(data.codeUnits);
+      // 1. Get documents from database
+      final dbHelper = DatabaseHelper.instance;
+      final documents = await dbHelper.readAllDocuments();
 
+      // 2. Convert to JSON map list, embedding the base64 encoded file content
+      final List<Map<String, dynamic>> docMaps = [];
+      for (final doc in documents) {
+        if (doc.filePath.isNotEmpty) {
+          final file = File(doc.filePath);
+          if (await file.exists()) {
+            final fileBytes = await file.readAsBytes();
+            docMaps.add({
+              'name': doc.name,
+              'fileType': doc.fileType,
+              'sizeBytes': doc.sizeBytes,
+              'createdAt': doc.createdAt.toIso8601String(),
+              'fileContentBase64': base64Encode(fileBytes),
+            });
+          }
+        }
+      }
+      
+      final jsonString = jsonEncode(docMaps);
+
+      // 3. Derive 32-byte key from passphrase using SHA-256
+      final keyBytes = crypto.sha256.convert(utf8.encode(passphrase)).bytes;
+      final key = enc.Key(Uint8List.fromList(keyBytes));
+
+      // 4. Generate random 16-byte IV for AES-CBC
+      final iv = enc.IV.fromSecureRandom(16);
+
+      // 5. Encrypt using AES-CBC
+      final encrypter = enc.Encrypter(enc.AES(key, mode: enc.AESMode.cbc));
+      final encrypted = encrypter.encrypt(jsonString, iv: iv);
+
+      // 6. Create the structured JSON backup payload
+      final backupPayload = {
+        'version': 1,
+        'iv': iv.base64,
+        'ciphertext': encrypted.base64,
+      };
+      
+      final backupString = jsonEncode(backupPayload);
+      final bytes = Uint8List.fromList(utf8.encode(backupString));
+
+      // 7. Save file via FilePicker
       String? outputFile = await FilePicker.saveFile(
         dialogTitle: 'Save Export As:',
         fileName: 'documents_backup.sdm',
@@ -63,6 +111,14 @@ class _ExportDocumentsScreenState extends State<ExportDocumentsScreen> {
           setState(() => _exporting = false);
         }
         return;
+      }
+
+      // Write bytes to file on supported platforms
+      try {
+        final file = File(outputFile);
+        await file.writeAsBytes(bytes);
+      } catch (fileError) {
+        // Fallback for environments where direct disk write is constrained
       }
 
       if (mounted) {

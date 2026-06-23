@@ -1,9 +1,18 @@
+import 'dart:io';
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:encrypt/encrypt.dart' as enc;
+import 'package:crypto/crypto.dart' as crypto;
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
+import '../services/database_helper.dart';
+import '../models/document_item.dart';
 
 class ImportDocumentsScreen extends StatefulWidget {
   const ImportDocumentsScreen({super.key});
@@ -61,61 +70,143 @@ class _ImportDocumentsScreenState extends State<ImportDocumentsScreen> {
       return;
     }
 
+    final passphrase = _passphraseCtrl.text;
     setState(() => _importing = true);
-    await Future.delayed(const Duration(seconds: 2));
-    if (mounted) {
-      setState(() => _importing = false);
+
+    try {
+      // 1. Read bytes from selected file
+      Uint8List? fileBytes = _selectedFile!.bytes;
+      if (fileBytes == null && _selectedFile!.path != null) {
+        final file = File(_selectedFile!.path!);
+        if (await file.exists()) {
+          fileBytes = await file.readAsBytes();
+        }
+      }
+
+      if (fileBytes == null) {
+        throw Exception('Could not read file data. Try selecting it again.');
+      }
+
+      // 2. Parse backup structure
+      final backupString = utf8.decode(fileBytes);
+      final Map<String, dynamic> backupPayload = jsonDecode(backupString);
+
+      if (backupPayload['version'] != 1 ||
+          backupPayload['iv'] == null ||
+          backupPayload['ciphertext'] == null) {
+        throw Exception('Invalid or unsupported backup file format.');
+      }
+
+      final iv = enc.IV.fromBase64(backupPayload['iv']);
+      final ciphertext = backupPayload['ciphertext'];
+
+      // 3. Derive 32-byte key from passphrase using SHA-256
+      final keyBytes = crypto.sha256.convert(utf8.encode(passphrase)).bytes;
+      final key = enc.Key(Uint8List.fromList(keyBytes));
+
+      // 4. Decrypt payload
+      final encrypter = enc.Encrypter(enc.AES(key, mode: enc.AESMode.cbc));
+      final decryptedString = encrypter.decrypt64(ciphertext, iv: iv);
+
+      // 5. Parse decrypted list of documents
+      final List<dynamic> docMaps = jsonDecode(decryptedString);
       
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          backgroundColor: AppColors.surface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Icon(
-            Icons.check_circle_rounded,
-            color: AppColors.success,
-            size: 48,
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Import Successful!',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(
-                  color: AppColors.textPrimary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
+      // 6. Write imported documents to local disk and database
+      final appDir = await getApplicationDocumentsDirectory();
+      final savedDir = Directory(p.join(appDir.path, 'documents'));
+      if (!await savedDir.exists()) {
+        await savedDir.create(recursive: true);
+      }
+
+      int importedCount = 0;
+      for (final map in docMaps) {
+        final fileData = base64Decode(map['fileContentBase64']);
+        final uniqueName = '${DateTime.now().millisecondsSinceEpoch}_${map['name']}';
+        final savedPath = p.join(savedDir.path, uniqueName);
+        
+        final destFile = File(savedPath);
+        await destFile.writeAsBytes(fileData);
+
+        final newDoc = DocumentItem(
+          name: map['name'],
+          filePath: savedPath,
+          fileType: map['fileType'],
+          sizeBytes: map['sizeBytes'],
+          createdAt: DateTime.parse(map['createdAt']),
+        );
+        await DatabaseHelper.instance.createDocument(newDoc);
+        importedCount++;
+      }
+
+      if (mounted) {
+        setState(() => _importing = false);
+        
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: AppColors.surface,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: const Icon(
+              Icons.check_circle_rounded,
+              color: AppColors.success,
+              size: 48,
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Import Successful!',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    color: AppColors.textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Successfully imported documents from:\n${_selectedFile?.name}',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(
-                  color: AppColors.textSecondary,
-                  fontSize: 12,
+                const SizedBox(height: 8),
+                Text(
+                  'Successfully imported $importedCount documents from:\n${_selectedFile?.name}',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  Navigator.pop(context);
+                },
+                child: Text(
+                  'Done',
+                  style: GoogleFonts.poppins(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(ctx);
-                Navigator.pop(context);
-              },
-              child: Text(
-                'Done',
-                style: GoogleFonts.poppins(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _importing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              e is ArgumentError || e is FormatException || e.toString().contains('MAC') || e.toString().contains('padding')
+                  ? 'Incorrect passphrase or corrupted file.'
+                  : 'Failed to import: $e',
+              style: GoogleFonts.poppins(),
             ),
-          ],
-        ),
-      );
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
     }
   }
 

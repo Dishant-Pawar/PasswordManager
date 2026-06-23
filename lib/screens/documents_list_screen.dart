@@ -41,6 +41,78 @@ class _DocumentsListScreenState extends State<DocumentsListScreen> {
     });
   }
 
+  Future<void> _deleteDocument(DocumentItem d) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Delete Document?',
+          style: GoogleFonts.poppins(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to permanently delete "${d.name}"?',
+          style: GoogleFonts.poppins(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.poppins(color: AppColors.textSecondary),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              'Delete',
+              style: GoogleFonts.poppins(
+                color: AppColors.error,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        if (d.filePath.isNotEmpty) {
+          final file = File(d.filePath);
+          if (await file.exists()) {
+            await file.delete();
+          }
+        }
+        if (d.id != null) {
+          await DatabaseHelper.instance.deleteDocument(d.id!);
+        }
+        _loadDocuments();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Document deleted successfully', style: GoogleFonts.poppins()),
+              backgroundColor: AppColors.success,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to delete document: $e', style: GoogleFonts.poppins()),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   List<DocumentItem> get _filteredDocuments {
     final query = _search.text.toLowerCase();
     if (query.isEmpty) return _documents;
@@ -178,6 +250,7 @@ class _DocumentsListScreenState extends State<DocumentsListScreen> {
                                     }
                                   }
                                 },
+                                onDelete: () => _deleteDocument(d),
                               )
                                   .animate()
                                   .fadeIn(delay: Duration(milliseconds: 100 * i))
