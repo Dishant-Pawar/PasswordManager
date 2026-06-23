@@ -3,6 +3,10 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
+import '../services/database_helper.dart';
+import '../models/document_item.dart';
+import 'dart:io';
+import 'package:open_filex/open_filex.dart';
 
 class DocumentsListScreen extends StatefulWidget {
   const DocumentsListScreen({super.key});
@@ -13,16 +17,41 @@ class DocumentsListScreen extends StatefulWidget {
 
 class _DocumentsListScreenState extends State<DocumentsListScreen> {
   final _search = TextEditingController();
+  List<DocumentItem> _documents = [];
+  bool _isLoading = true;
 
-  final _documents = [
-    ('Passport.pdf', '2.4 MB', 'pdf'),
-    ('Aadhar Card.pdf', '1.3 MB', 'pdf'),
-    ('Bank Statement.pdf', '3.6 MB', 'pdf'),
-    ('Driving License.pdf', '1.1 MB', 'pdf'),
-    ('Profile Photo.jpg', '800 KB', 'jpg'),
-    ('Insurance.docx', '550 KB', 'docx'),
-    ('Tax Return.xlsx', '1.2 MB', 'xlsx'),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _search.addListener(() => setState(() {}));
+    _loadDocuments();
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadDocuments() async {
+    final docs = await DatabaseHelper.instance.readAllDocuments();
+    setState(() {
+      _documents = docs;
+      _isLoading = false;
+    });
+  }
+
+  List<DocumentItem> get _filteredDocuments {
+    final query = _search.text.toLowerCase();
+    if (query.isEmpty) return _documents;
+    return _documents.where((d) => d.name.toLowerCase().contains(query)).toList();
+  }
+
+  String _formatFileSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -58,7 +87,9 @@ class _DocumentsListScreenState extends State<DocumentsListScreen> {
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
-                            '7 files',
+                            _documents.length == 1
+                                ? '1 file'
+                                : '${_documents.length} files',
                             style: GoogleFonts.poppins(
                               color: AppColors.accent,
                               fontSize: 12,
@@ -89,17 +120,70 @@ class _DocumentsListScreenState extends State<DocumentsListScreen> {
                 ),
               ),
               Expanded(
-                child: ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  itemCount: _documents.length,
-                  itemBuilder: (context, i) {
-                    final d = _documents[i];
-                    return DocumentTile(name: d.$1, size: d.$2, type: d.$3)
-                        .animate()
-                        .fadeIn(delay: Duration(milliseconds: 100 * i))
-                        .slideX(begin: 0.1, end: 0);
-                  },
-                ),
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator(color: AppColors.accent))
+                    : _filteredDocuments.isEmpty
+                        ? Center(
+                            child: Text(
+                              _search.text.isEmpty
+                                  ? 'No documents uploaded yet'
+                                  : 'No matching documents',
+                              style: GoogleFonts.poppins(
+                                color: AppColors.textSecondary,
+                                fontSize: 14,
+                              ),
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            itemCount: _filteredDocuments.length,
+                            itemBuilder: (context, i) {
+                              final d = _filteredDocuments[i];
+                              return DocumentTile(
+                                name: d.name,
+                                size: _formatFileSize(d.sizeBytes),
+                                type: d.fileType,
+                                onTap: () async {
+                                  if (d.filePath.isEmpty) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Invalid file path', style: GoogleFonts.poppins()),
+                                        backgroundColor: AppColors.error,
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                  final file = File(d.filePath);
+                                  if (await file.exists()) {
+                                    try {
+                                      await OpenFilex.open(d.filePath);
+                                    } catch (e) {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text('Could not open file: $e', style: GoogleFonts.poppins()),
+                                            backgroundColor: AppColors.error,
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  } else {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('File does not exist or was deleted', style: GoogleFonts.poppins()),
+                                          backgroundColor: AppColors.error,
+                                        ),
+                                      );
+                                    }
+                                  }
+                                },
+                              )
+                                  .animate()
+                                  .fadeIn(delay: Duration(milliseconds: 100 * i))
+                                  .slideX(begin: 0.1, end: 0);
+                            },
+                          ),
               ),
             ],
           ),
@@ -107,7 +191,10 @@ class _DocumentsListScreenState extends State<DocumentsListScreen> {
       ),
       bottomNavigationBar: _buildBottomNav(context),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.pushNamed(context, '/upload-document'),
+        onPressed: () async {
+          await Navigator.pushNamed(context, '/upload-document');
+          _loadDocuments();
+        },
         backgroundColor: AppColors.accent,
         elevation: 4,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),

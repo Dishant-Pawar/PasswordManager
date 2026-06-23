@@ -4,6 +4,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
+import '../services/database_helper.dart';
+import '../models/document_item.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 
 class UploadDocumentScreen extends StatefulWidget {
   const UploadDocumentScreen({super.key});
@@ -67,7 +72,48 @@ class _UploadDocumentScreenState extends State<UploadDocumentScreen> {
       return;
     }
     setState(() => _uploading = true);
-    await Future.delayed(const Duration(seconds: 2));
+    
+    try {
+      final appDir = await getApplicationDocumentsDirectory();
+      final savedDir = Directory(p.join(appDir.path, 'documents'));
+      if (!await savedDir.exists()) {
+        await savedDir.create(recursive: true);
+      }
+      
+      final extension = _selectedFile?.extension ?? '';
+      final uniqueName = '${DateTime.now().millisecondsSinceEpoch}_${_selectedFile!.name}';
+      final savedPath = p.join(savedDir.path, uniqueName);
+      
+      if (_selectedFile!.path != null) {
+        final sourceFile = File(_selectedFile!.path!);
+        await sourceFile.copy(savedPath);
+      } else if (_selectedFile!.bytes != null) {
+        final destFile = File(savedPath);
+        await destFile.writeAsBytes(_selectedFile!.bytes!);
+      } else {
+        throw Exception("Invalid file content");
+      }
+
+      final document = DocumentItem(
+        name: _nameCtrl.text,
+        filePath: savedPath,
+        fileType: extension,
+        sizeBytes: _selectedFile?.size ?? 0,
+      );
+      await DatabaseHelper.instance.createDocument(document);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _uploading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save document: $e', style: GoogleFonts.poppins()),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+      return;
+    }
+
     if (mounted) {
       setState(() => _uploading = false);
       
