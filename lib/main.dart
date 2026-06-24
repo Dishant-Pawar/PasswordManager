@@ -16,6 +16,7 @@ import 'screens/export_documents_screen.dart';
 import 'screens/import_documents_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/change_master_password_screen.dart';
+import 'screens/backup_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -66,6 +67,7 @@ class SecureVaultApp extends StatelessWidget {
         '/import-documents': (context) => const ImportDocumentsScreen(),
         '/settings': (context) => const SettingsScreen(),
         '/change-master-password': (context) => const ChangeMasterPasswordScreen(),
+        '/backup': (context) => const BackupScreen(),
       },
     );
   }

@@ -303,7 +303,13 @@ class _BottomNav extends StatelessWidget {
                 () => Navigator.pushNamed(context, '/documents'),
               ),
               const SizedBox(width: 48),
-              _navItem(Icons.backup_rounded, 'Backup', 2, currentIndex, () {}),
+              _navItem(
+                Icons.backup_rounded,
+                'Backup',
+                2,
+                currentIndex,
+                () => Navigator.pushNamed(context, '/backup'),
+              ),
               _navItem(
                 Icons.settings_rounded,
                 'Settings',

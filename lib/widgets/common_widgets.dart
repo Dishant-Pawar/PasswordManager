@@ -65,16 +65,27 @@ class OutlineButton extends StatelessWidget {
   final String label;
   final VoidCallback? onTap;
   final IconData? icon;
+  final double? width;
+  final double height;
+  final double? fontSize;
 
-  const OutlineButton({super.key, required this.label, this.onTap, this.icon});
+  const OutlineButton({
+    super.key,
+    required this.label,
+    this.onTap,
+    this.icon,
+    this.width,
+    this.height = 56,
+    this.fontSize,
+  });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: double.infinity,
-        height: 56,
+        width: width ?? double.infinity,
+        height: height,
         decoration: BoxDecoration(
           border: Border.all(color: AppColors.primary, width: 1.5),
           borderRadius: BorderRadius.circular(16),
@@ -83,14 +94,14 @@ class OutlineButton extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (icon != null) ...[
-              Icon(icon, color: AppColors.primary, size: 20),
-              const SizedBox(width: 8),
+              Icon(icon, color: AppColors.primary, size: 18),
+              const SizedBox(width: 6),
             ],
             Text(
               label,
               style: GoogleFonts.poppins(
                 color: AppColors.primary,
-                fontSize: 16,
+                fontSize: fontSize ?? 16,
                 fontWeight: FontWeight.w600,
               ),
             ),

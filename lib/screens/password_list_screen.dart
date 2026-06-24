@@ -185,7 +185,12 @@ class _PasswordListScreenState extends State<PasswordListScreen> {
                 () => Navigator.pushNamed(context, '/documents'),
               ),
               const SizedBox(width: 48),
-              _navItem(Icons.backup_rounded, 'Backup', false, () {}),
+              _navItem(
+                Icons.backup_rounded,
+                'Backup',
+                false,
+                () => Navigator.pushNamed(context, '/backup'),
+              ),
               _navItem(
                 Icons.settings_rounded,
                 'Settings',
