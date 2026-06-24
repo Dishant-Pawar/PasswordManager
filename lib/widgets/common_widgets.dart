@@ -489,6 +489,8 @@ class DocumentTile extends StatelessWidget {
   final VoidCallback? onDelete;
   final VoidCallback? onDownload;
   final VoidCallback? onShare;
+  final bool isSelected;
+  final bool isSelectionMode;
 
   const DocumentTile({
     super.key,
@@ -499,6 +501,8 @@ class DocumentTile extends StatelessWidget {
     this.onDelete,
     this.onDownload,
     this.onShare,
+    this.isSelected = false,
+    this.isSelectionMode = false,
   });
 
   Color get _typeColor {
@@ -524,11 +528,15 @@ class DocumentTile extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: isSelected
+              ? AppColors.primary.withValues(alpha: 0.08)
+              : AppColors.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: AppColors.border.withValues(alpha: 0.5),
-            width: 1,
+            color: isSelected
+                ? AppColors.primary.withValues(alpha: 0.5)
+                : AppColors.border.withValues(alpha: 0.5),
+            width: isSelected ? 1.5 : 1,
           ),
         ),
         child: Row(
@@ -574,39 +582,61 @@ class DocumentTile extends StatelessWidget {
                 ],
               ),
             ),
-            if (onDownload != null)
-              IconButton(
-                icon: const Icon(
-                  Icons.file_download_rounded,
-                  color: AppColors.primary,
-                  size: 22,
+            if (isSelectionMode)
+              Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isSelected ? AppColors.primary : Colors.transparent,
+                  border: Border.all(
+                    color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                    width: 2,
+                  ),
                 ),
-                onPressed: onDownload,
-              ),
-            if (onShare != null)
-              IconButton(
-                icon: const Icon(
-                  Icons.share_rounded,
-                  color: AppColors.accent,
+                child: isSelected
+                    ? const Icon(
+                        Icons.check_rounded,
+                        color: Colors.white,
+                        size: 16,
+                      )
+                    : null,
+              )
+            else ...[
+              if (onDownload != null)
+                IconButton(
+                  icon: const Icon(
+                    Icons.file_download_rounded,
+                    color: AppColors.primary,
+                    size: 22,
+                  ),
+                  onPressed: onDownload,
+                ),
+              if (onShare != null)
+                IconButton(
+                  icon: const Icon(
+                    Icons.share_rounded,
+                    color: AppColors.accent,
+                    size: 20,
+                  ),
+                  onPressed: onShare,
+                ),
+              if (onDelete != null)
+                IconButton(
+                  icon: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: AppColors.error,
+                    size: 22,
+                  ),
+                  onPressed: onDelete,
+                )
+              else if (onDownload == null && onShare == null)
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.textSecondary,
                   size: 20,
                 ),
-                onPressed: onShare,
-              ),
-            if (onDelete != null)
-              IconButton(
-                icon: const Icon(
-                  Icons.delete_outline_rounded,
-                  color: AppColors.error,
-                  size: 22,
-                ),
-                onPressed: onDelete,
-              )
-            else if (onDownload == null && onShare == null)
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: AppColors.textSecondary,
-                size: 20,
-              ),
+            ],
           ],
         ),
       ),

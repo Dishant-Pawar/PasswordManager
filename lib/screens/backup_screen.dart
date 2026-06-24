@@ -38,6 +38,7 @@ class _BackupScreenState extends State<BackupScreen> {
   String? _gdriveAccount;
   String? _gdriveName;
   String? _gdrivePath;
+  String? _gdrivePhoto;
   
   // Storage usage stats
   int _gdriveTotalSpace = 0;
@@ -87,6 +88,7 @@ class _BackupScreenState extends State<BackupScreen> {
     final gaccount = await SettingsService.instance.getGoogleAccount();
     final gname = await SettingsService.instance.getGoogleName();
     final gpath = await SettingsService.instance.getGoogleDrivePath();
+    final gphoto = await SettingsService.instance.getGooglePhoto();
     final settings = await SettingsService.instance.loadSettings();
     final autoBackup = settings['auto_backup_enabled'] as bool? ?? false;
     
@@ -115,6 +117,7 @@ class _BackupScreenState extends State<BackupScreen> {
       _gdriveAccount = gaccount;
       _gdriveName = gname;
       _gdrivePath = gpath;
+      _gdrivePhoto = gphoto;
       _autoBackupEnabled = autoBackup;
       _availableDrives = drives;
       _gdriveCloudSyncConnected = isCloudConnected;
@@ -274,6 +277,7 @@ class _BackupScreenState extends State<BackupScreen> {
           enabled: true,
           email: account.email,
           name: account.displayName,
+          photoUrl: account.photoUrl,
         );
         _loadBackupSettings();
       }
@@ -1053,7 +1057,13 @@ class _BackupScreenState extends State<BackupScreen> {
             _gdriveEnabled = true;
             _primaryDrive = null;
           });
-          SettingsService.instance.setGoogleDriveConnection(enabled: true, email: _gdriveAccount, name: _gdriveName, path: _gdrivePath);
+          SettingsService.instance.setGoogleDriveConnection(
+            enabled: true,
+            email: _gdriveAccount,
+            name: _gdriveName,
+            path: _gdrivePath,
+            photoUrl: _gdrivePhoto,
+          );
           SettingsService.instance.setPrimaryDrive('');
         } else {
           _runGoogleOAuthFlow();

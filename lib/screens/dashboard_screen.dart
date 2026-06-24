@@ -1,3 +1,7 @@
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -6,6 +10,7 @@ import '../widgets/common_widgets.dart';
 
 import '../services/database_helper.dart';
 import '../models/password_item.dart';
+import '../services/settings_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -19,6 +24,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _documentCount = 0;
   List<PasswordItem> _recentPasswords = [];
   bool _isLoading = true;
+  String _profileName = 'John Doe';
+  String _profileEmail = 'john@example.com';
+  String? _profilePhotoUrl;
+  String? _profilePhotoPath;
 
   @override
   void initState() {
@@ -30,13 +39,255 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final dbHelper = DatabaseHelper.instance;
     final passwords = await dbHelper.readAllPasswords();
     final documents = await dbHelper.readAllDocuments();
+    final settings = await SettingsService.instance.loadSettings();
 
     setState(() {
       _passwordCount = passwords.length;
       _documentCount = documents.length;
       _recentPasswords = passwords.take(3).toList();
+      _profileName = settings['profile_name'] as String? ?? 'John Doe';
+      _profileEmail = settings['profile_email'] as String? ?? 'john@example.com';
+      _profilePhotoUrl = settings['profile_photo_url'] as String? ?? settings['gdrive_photo'] as String?;
+      _profilePhotoPath = settings['profile_photo_path'] as String?;
       _isLoading = false;
     });
+  }
+
+  Future<String?> _copyPickedFile(String originalPath) async {
+    try {
+      final appDir = await getApplicationDocumentsDirectory();
+      final profileDir = Directory(p.join(appDir.path, 'profile_photos'));
+      if (!await profileDir.exists()) {
+        await profileDir.create(recursive: true);
+      }
+      final extension = p.extension(originalPath);
+      final newFileName = 'profile_pic_${DateTime.now().millisecondsSinceEpoch}$extension';
+      final newPath = p.join(profileDir.path, newFileName);
+      
+      final originalFile = File(originalPath);
+      await originalFile.copy(newPath);
+      return newPath;
+    } catch (e) {
+      debugPrint("Error copying profile photo: $e");
+      return null;
+    }
+  }
+
+  void _showEditProfileDialog() {
+    final nameController = TextEditingController(text: _profileName);
+    final emailController = TextEditingController(text: _profileEmail);
+    final photoUrlController = TextEditingController(text: _profilePhotoUrl ?? '');
+    final formKey = GlobalKey<FormState>();
+
+    String? localPhotoPath = _profilePhotoPath;
+    String? localPhotoUrl = _profilePhotoUrl;
+
+    StateSetter? updateDialog;
+
+    photoUrlController.addListener(() {
+      if (updateDialog != null) {
+        final val = photoUrlController.text.trim();
+        if (val != localPhotoUrl) {
+          updateDialog!(() {
+            localPhotoUrl = val;
+            if (val.isNotEmpty) {
+              localPhotoPath = null;
+            }
+          });
+        }
+      }
+    });
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          updateDialog = setDialogState;
+          final hasLocalFile = localPhotoPath != null && File(localPhotoPath!).existsSync();
+          final hasUrl = localPhotoUrl != null && localPhotoUrl!.isNotEmpty;
+
+          return AlertDialog(
+            backgroundColor: AppColors.surface,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: Text(
+              'Edit Profile',
+              style: GoogleFonts.poppins(
+                color: AppColors.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            content: SingleChildScrollView(
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircleAvatar(
+                      radius: 40,
+                      backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+                      backgroundImage: hasLocalFile
+                          ? FileImage(File(localPhotoPath!))
+                          : (hasUrl ? NetworkImage(localPhotoUrl!) : null),
+                      child: hasLocalFile || hasUrl
+                          ? null
+                          : const Icon(
+                              Icons.person_rounded,
+                              color: AppColors.primary,
+                              size: 40,
+                            ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        TextButton.icon(
+                          onPressed: () async {
+                            final result = await FilePicker.pickFiles(
+                              type: FileType.image,
+                              allowMultiple: false,
+                            );
+                            if (result != null && result.files.single.path != null) {
+                              setDialogState(() {
+                                localPhotoPath = result.files.single.path;
+                                localPhotoUrl = '';
+                                photoUrlController.clear();
+                              });
+                            }
+                          },
+                          icon: const Icon(Icons.photo_library_rounded, size: 16),
+                          label: Text(
+                            'Upload',
+                            style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600),
+                          ),
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppColors.primary,
+                          ),
+                        ),
+                        if (hasLocalFile || hasUrl) ...[
+                          const SizedBox(width: 8),
+                          TextButton.icon(
+                            onPressed: () {
+                              setDialogState(() {
+                                localPhotoPath = null;
+                                localPhotoUrl = null;
+                                photoUrlController.clear();
+                              });
+                            },
+                            icon: const Icon(Icons.delete_outline_rounded, size: 16),
+                            label: Text(
+                              'Remove',
+                              style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600),
+                            ),
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppColors.error,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    SVaultTextField(
+                      label: 'Name',
+                      hint: 'Enter your name',
+                      controller: nameController,
+                      validator: (val) {
+                        if (val == null || val.trim().isEmpty) {
+                          return 'Name cannot be empty';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    SVaultTextField(
+                      label: 'Email Address',
+                      hint: 'Enter your email',
+                      controller: emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      validator: (val) {
+                        if (val == null || val.trim().isEmpty) {
+                          return 'Email cannot be empty';
+                        }
+                        final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                        if (!emailRegex.hasMatch(val.trim())) {
+                          return 'Enter a valid email address';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    SVaultTextField(
+                      label: 'Profile Picture URL',
+                      hint: 'Enter image URL (optional)',
+                      controller: photoUrlController,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text(
+                  'Cancel',
+                  style: GoogleFonts.poppins(
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () async {
+                  if (formKey.currentState?.validate() ?? false) {
+                    final newName = nameController.text.trim();
+                    final newEmail = emailController.text.trim();
+                    final newPhotoUrl = photoUrlController.text.trim();
+                    final messenger = ScaffoldMessenger.of(context);
+                    final navigator = Navigator.of(ctx);
+
+                    String? finalPhotoPath = localPhotoPath;
+                    if (localPhotoPath != null && localPhotoPath != _profilePhotoPath) {
+                      finalPhotoPath = await _copyPickedFile(localPhotoPath!);
+                    }
+
+                    setState(() {
+                      _profileName = newName;
+                      _profileEmail = newEmail;
+                      _profilePhotoUrl = newPhotoUrl.isNotEmpty ? newPhotoUrl : null;
+                      _profilePhotoPath = finalPhotoPath;
+                    });
+
+                    await SettingsService.instance.saveSetting('profile_name', newName);
+                    await SettingsService.instance.saveSetting('profile_email', newEmail);
+                    await SettingsService.instance.saveSetting('profile_photo_url', newPhotoUrl);
+                    await SettingsService.instance.saveSetting('profile_photo_path', finalPhotoPath);
+
+                    navigator.pop();
+
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Profile updated successfully.',
+                          style: GoogleFonts.poppins(),
+                        ),
+                        backgroundColor: AppColors.success,
+                      ),
+                    );
+                  }
+                },
+                child: Text(
+                  'Save',
+                  style: GoogleFonts.poppins(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   @override
@@ -70,7 +321,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     ),
                                   ),
                                   Text(
-                                    'John Doe 👋',
+                                    '$_profileName 👋',
                                     style: GoogleFonts.poppins(
                                       color: AppColors.textPrimary,
                                       fontSize: 20,
@@ -79,17 +330,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   ),
                                 ],
                               ),
-                              CircleAvatar(
-                                radius: 22,
-                                backgroundColor: AppColors.primary.withValues(
-                                  alpha: 0.2,
-                                ),
-                                child: const Icon(
-                                  Icons.person_rounded,
-                                  color: AppColors.primary,
-                                  size: 22,
-                                ),
-                              ),
+                               GestureDetector(
+                                 onTap: _showEditProfileDialog,
+                                 child: CircleAvatar(
+                                   radius: 22,
+                                   backgroundColor: AppColors.primary.withValues(
+                                     alpha: 0.2,
+                                   ),
+                                   backgroundImage: _profilePhotoPath != null && File(_profilePhotoPath!).existsSync()
+                                       ? FileImage(File(_profilePhotoPath!))
+                                       : (_profilePhotoUrl != null && _profilePhotoUrl!.isNotEmpty
+                                           ? NetworkImage(_profilePhotoUrl!)
+                                           : null),
+                                   child: (_profilePhotoPath != null && File(_profilePhotoPath!).existsSync()) ||
+                                           (_profilePhotoUrl != null && _profilePhotoUrl!.isNotEmpty)
+                                       ? null
+                                       : const Icon(
+                                           Icons.person_rounded,
+                                           color: AppColors.primary,
+                                           size: 22,
+                                         ),
+                                 ),
+                               ),
                             ],
                           )
                           .animate()
@@ -246,7 +508,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
       ),
-      bottomNavigationBar: _BottomNav(currentIndex: 0, context: context),
+      bottomNavigationBar: _BottomNav(
+        currentIndex: 0,
+        context: context,
+        onSettingsReturn: _loadData,
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           await Navigator.pushNamed(context, '/add-password');
@@ -265,8 +531,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
 class _BottomNav extends StatelessWidget {
   final int currentIndex;
   final BuildContext context;
+  final VoidCallback? onSettingsReturn;
 
-  const _BottomNav({required this.currentIndex, required this.context});
+  const _BottomNav({
+    required this.currentIndex,
+    required this.context,
+    this.onSettingsReturn,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -315,7 +586,12 @@ class _BottomNav extends StatelessWidget {
                 'Settings',
                 3,
                 currentIndex,
-                () => Navigator.pushNamed(context, '/settings'),
+                () async {
+                  await Navigator.pushNamed(context, '/settings');
+                  if (onSettingsReturn != null) {
+                    onSettingsReturn!();
+                  }
+                },
               ),
             ],
           ),

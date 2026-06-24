@@ -78,15 +78,22 @@ class SettingsService {
     return settings['gdrive_path'] as String?;
   }
 
+  Future<String?> getGooglePhoto() async {
+    final settings = await loadSettings();
+    return settings['gdrive_photo'] as String?;
+  }
+
   Future<void> setGoogleDriveConnection({
     required bool enabled,
     String? email,
     String? name,
     String? path,
+    String? photoUrl,
   }) async {
     await saveSetting('gdrive_enabled', enabled);
     await saveSetting('gdrive_account', email);
     await saveSetting('gdrive_name', name);
     await saveSetting('gdrive_path', path);
+    await saveSetting('gdrive_photo', photoUrl);
   }
 }
