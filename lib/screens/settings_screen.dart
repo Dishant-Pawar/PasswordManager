@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
+import '../services/settings_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -15,6 +16,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _darkMode = true;
   bool _biometric = true;
   bool _autoBackup = false;
+  String _autoBackupPassphrase = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final settings = await SettingsService.instance.loadSettings();
+    setState(() {
+      _darkMode = settings['dark_mode'] as bool? ?? true;
+      _biometric = settings['biometric_enabled'] as bool? ?? true;
+      _autoBackup = settings['auto_backup_enabled'] as bool? ?? false;
+      _autoBackupPassphrase = settings['auto_backup_passphrase'] as String? ?? '';
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -101,11 +119,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               iconColor: AppColors.success,
                               trailing: Switch(
                                 value: _autoBackup,
-                                onChanged: (v) =>
-                                    setState(() => _autoBackup = v),
+                                onChanged: (v) async {
+                                  setState(() => _autoBackup = v);
+                                  await SettingsService.instance.saveSetting('auto_backup_enabled', v);
+                                },
                                 activeThumbColor: AppColors.primary,
                               ),
                             ),
+                            if (_autoBackup) ...[
+                              const Divider(
+                                color: AppColors.border,
+                                height: 1,
+                                indent: 68,
+                              ),
+                              SettingsTile(
+                                title: 'Auto Backup Passphrase',
+                                subtitle: _autoBackupPassphrase.isEmpty
+                                    ? 'Using default secure key'
+                                    : 'Custom passphrase configured',
+                                icon: Icons.key_rounded,
+                                iconColor: AppColors.primary,
+                                onTap: _showPassphraseDialog,
+                              ),
+                            ],
                             const Divider(
                               color: AppColors.border,
                               height: 1,
@@ -117,8 +153,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               iconColor: AppColors.primary,
                               trailing: Switch(
                                 value: _biometric,
-                                onChanged: (v) =>
-                                    setState(() => _biometric = v),
+                                onChanged: (v) async {
+                                  setState(() => _biometric = v);
+                                  await SettingsService.instance.saveSetting('biometric_enabled', v);
+                                },
                                 activeThumbColor: AppColors.primary,
                               ),
                             ),
@@ -147,7 +185,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               iconColor: AppColors.accent,
                               trailing: Switch(
                                 value: _darkMode,
-                                onChanged: (v) => setState(() => _darkMode = v),
+                                onChanged: (v) async {
+                                  setState(() => _darkMode = v);
+                                  await SettingsService.instance.saveSetting('dark_mode', v);
+                                },
                                 activeThumbColor: AppColors.primary,
                               ),
                             ),
@@ -313,6 +354,85 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showPassphraseDialog() {
+    final controller = TextEditingController(text: _autoBackupPassphrase);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Auto Backup Passphrase',
+          style: GoogleFonts.poppins(
+            color: AppColors.textPrimary,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Specify a custom passphrase to encrypt automatic cloud backups. If left empty, the system default secure key is used.',
+              style: GoogleFonts.poppins(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(height: 16),
+            SVaultTextField(
+              label: 'Passphrase',
+              hint: 'Enter passphrase',
+              isPassword: true,
+              controller: controller,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.poppins(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              final newPassphrase = controller.text;
+              final messenger = ScaffoldMessenger.of(context);
+              final navigator = Navigator.of(ctx);
+              setState(() {
+                _autoBackupPassphrase = newPassphrase;
+              });
+              await SettingsService.instance.saveSetting('auto_backup_passphrase', newPassphrase);
+              navigator.pop();
+              messenger.showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Auto backup passphrase updated.',
+                    style: GoogleFonts.poppins(),
+                  ),
+                  backgroundColor: AppColors.success,
+                ),
+              );
+            },
+            child: Text(
+              'Save',
+              style: GoogleFonts.poppins(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

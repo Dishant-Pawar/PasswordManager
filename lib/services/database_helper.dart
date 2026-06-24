@@ -3,6 +3,7 @@ import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 import '../models/password_item.dart';
 import '../models/document_item.dart';
+import 'auto_backup_helper.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
@@ -67,7 +68,9 @@ CREATE TABLE documents (
   Future<PasswordItem> createPassword(PasswordItem password) async {
     final db = await instance.database;
     final id = await db.insert('passwords', password.toMap());
-    return password.copyWith(id: id);
+    final result = password.copyWith(id: id);
+    unawaited(AutoBackupHelper.triggerAutoBackup());
+    return result;
   }
 
   Future<PasswordItem?> readPassword(int id) async {
@@ -94,21 +97,25 @@ CREATE TABLE documents (
 
   Future<int> updatePassword(PasswordItem password) async {
     final db = await instance.database;
-    return db.update(
+    final result = await db.update(
       'passwords',
       password.toMap(),
       where: 'id = ?',
       whereArgs: [password.id],
     );
+    unawaited(AutoBackupHelper.triggerAutoBackup());
+    return result;
   }
 
   Future<int> deletePassword(int id) async {
     final db = await instance.database;
-    return await db.delete(
+    final result = await db.delete(
       'passwords',
       where: 'id = ?',
       whereArgs: [id],
     );
+    unawaited(AutoBackupHelper.triggerAutoBackup());
+    return result;
   }
 
   // ==========================================
@@ -118,7 +125,9 @@ CREATE TABLE documents (
   Future<DocumentItem> createDocument(DocumentItem document) async {
     final db = await instance.database;
     final id = await db.insert('documents', document.toMap());
-    return document.copyWith(id: id);
+    final result = document.copyWith(id: id);
+    unawaited(AutoBackupHelper.triggerAutoBackup());
+    return result;
   }
 
   Future<DocumentItem?> readDocument(int id) async {
@@ -145,21 +154,25 @@ CREATE TABLE documents (
 
   Future<int> updateDocument(DocumentItem document) async {
     final db = await instance.database;
-    return db.update(
+    final result = await db.update(
       'documents',
       document.toMap(),
       where: 'id = ?',
       whereArgs: [document.id],
     );
+    unawaited(AutoBackupHelper.triggerAutoBackup());
+    return result;
   }
 
   Future<int> deleteDocument(int id) async {
     final db = await instance.database;
-    return await db.delete(
+    final result = await db.delete(
       'documents',
       where: 'id = ?',
       whereArgs: [id],
     );
+    unawaited(AutoBackupHelper.triggerAutoBackup());
+    return result;
   }
 
   Future close() async {
