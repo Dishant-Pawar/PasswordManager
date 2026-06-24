@@ -8,7 +8,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:encrypt/encrypt.dart' as enc;
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:path/path.dart' as p;
-import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:sqflite/sqflite.dart';
@@ -233,11 +232,13 @@ class _BackupScreenState extends State<BackupScreen> {
               children: [
                 const Icon(Icons.error_outline_rounded, color: AppColors.error),
                 const SizedBox(width: 10),
-                Text(
-                  'Drive Unavailable',
-                  style: GoogleFonts.poppins(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w700,
+                Expanded(
+                  child: Text(
+                    'Drive Unavailable',
+                    style: GoogleFonts.poppins(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ],
@@ -263,230 +264,6 @@ class _BackupScreenState extends State<BackupScreen> {
 
 
 
-  void _showGoogleDriveOptions() {
-    showDialog(
-      context: context,
-      builder: (dialogCtx) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: const Color(0xFF34A853).withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(Icons.cloud_queue_rounded, color: Color(0xFF34A853), size: 24),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              'Google Drive Backup',
-              style: GoogleFonts.poppins(color: AppColors.textPrimary, fontWeight: FontWeight.w700),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              Platform.isAndroid
-                  ? 'Backup securely using direct Google OAuth integration or native folder sync:'
-                  : 'Select backup interface with Google Drive:',
-              style: GoogleFonts.poppins(color: AppColors.textSecondary, fontSize: 13),
-            ),
-            const SizedBox(height: 20),
-            _gdriveOptionTile(
-              title: 'OAuth 2.0 Cloud Sync (Real API)',
-              subtitle: 'Link Google Account. Backups upload directly to Google Drive Cloud folder.',
-              icon: Icons.account_tree_rounded,
-              color: AppColors.primary,
-              onTap: () {
-                Navigator.pop(dialogCtx);
-                _runGoogleOAuthFlow();
-              },
-            ),
-            const SizedBox(height: 12),
-            _gdriveOptionTile(
-              title: Platform.isAndroid ? 'Local Folder Sync' : 'Desktop Sync Folder',
-              subtitle: Platform.isAndroid
-                  ? 'Select your Google Drive folder from your side drawer storage locations.'
-                  : 'Save backups to your local Google Drive installation folder.',
-              icon: Icons.folder_shared_rounded,
-              color: AppColors.accent,
-              onTap: () {
-                Navigator.pop(dialogCtx);
-                _configureLocalGoogleSync();
-              },
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx),
-            child: Text(
-              'Cancel',
-              style: GoogleFonts.poppins(color: AppColors.textSecondary),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _gdriveOptionTile({
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return SolidCard(
-      padding: const EdgeInsets.all(14),
-      onTap: onTap,
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: GoogleFonts.poppins(
-                    color: AppColors.textPrimary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: GoogleFonts.poppins(color: AppColors.textSecondary, fontSize: 11, height: 1.3),
-                ),
-              ],
-            ),
-          ),
-          const Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary, size: 18),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _configureLocalGoogleSync() async {
-    String detectedPath = '';
-    final username = Platform.environment['USERNAME'] ?? '';
-    final List<String> possiblePaths = [
-      'G:\\My Drive',
-      'G:\\',
-      if (username.isNotEmpty) 'C:\\Users\\$username\\Google Drive',
-      if (username.isNotEmpty) 'C:\\Users\\$username\\Google Drive\\My Drive',
-    ];
-
-    for (final path in possiblePaths) {
-      if (Directory(path).existsSync()) {
-        detectedPath = path;
-        break;
-      }
-    }
-
-    if (detectedPath.isNotEmpty) {
-      final confirm = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          backgroundColor: AppColors.surface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Text(
-            'Google Drive Detected',
-            style: GoogleFonts.poppins(color: AppColors.textPrimary, fontWeight: FontWeight.w700),
-          ),
-          content: Text(
-            'We detected Google Drive sync folder at:\n\n$detectedPath\n\nWould you like to assign this as your backup location?',
-            style: GoogleFonts.poppins(color: AppColors.textSecondary, fontSize: 13),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text('Pick Folder Manually', style: GoogleFonts.poppins(color: AppColors.textSecondary)),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
-              onPressed: () => Navigator.pop(ctx, true),
-              child: Text('Yes, Use This', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-            ),
-          ],
-        ),
-      );
-
-      if (confirm == true) {
-        final targetPath = p.join(detectedPath, 'SecureVault_Backups');
-        try {
-          await Directory(targetPath).create(recursive: true);
-          await SettingsService.instance.setPrimaryDrive(detectedPath.substring(0, 3));
-          await SettingsService.instance.setBackupDirectory(targetPath);
-          await SettingsService.instance.setGoogleDriveConnection(
-            enabled: true,
-            email: 'Google Drive Sync Folder',
-            path: targetPath,
-          );
-          _loadBackupSettings();
-          return;
-        } catch (_) {}
-      }
-    }
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            Platform.isAndroid 
-              ? 'Select Google Drive folder from your side-drawer locations.' 
-              : 'Please select your Google Drive local folder.', 
-            style: GoogleFonts.poppins()
-          ),
-          backgroundColor: AppColors.primary,
-        ),
-      );
-    }
-
-    final selectedPath = await FilePicker.getDirectoryPath(
-      dialogTitle: 'Select Google Drive Folder Path:',
-    );
-
-    if (!mounted) return;
-    if (selectedPath != null) {
-      final exists = Directory(selectedPath).existsSync();
-      if (exists) {
-        final targetPath = p.join(selectedPath, 'SecureVault_Backups');
-        try {
-          await Directory(targetPath).create(recursive: true);
-        } catch (_) {}
-        
-        String driveRoot = '/';
-        if (Platform.isWindows && selectedPath.length >= 2 && selectedPath[1] == ':') {
-          driveRoot = selectedPath.substring(0, 3);
-        }
-
-        await SettingsService.instance.setPrimaryDrive(driveRoot);
-        await SettingsService.instance.setBackupDirectory(targetPath);
-        await SettingsService.instance.setGoogleDriveConnection(
-          enabled: true,
-          email: Platform.isAndroid ? 'Google Drive Sync Folder' : 'Google Drive Desktop sync',
-          path: targetPath,
-        );
-        _loadBackupSettings();
-      }
-    }
-  }
 
   void _runGoogleOAuthFlow() async {
     try {
@@ -511,9 +288,11 @@ class _BackupScreenState extends State<BackupScreen> {
               children: [
                 const Icon(Icons.error_outline_rounded, color: AppColors.error),
                 const SizedBox(width: 10),
-                Text(
-                  'Connection Failed',
-                  style: GoogleFonts.poppins(color: AppColors.textPrimary, fontWeight: FontWeight.w700),
+                Expanded(
+                  child: Text(
+                    'Connection Failed',
+                    style: GoogleFonts.poppins(color: AppColors.textPrimary, fontWeight: FontWeight.w700),
+                  ),
                 ),
               ],
             ),
@@ -829,7 +608,9 @@ class _BackupScreenState extends State<BackupScreen> {
               children: [
                 const Icon(Icons.warning_amber_rounded, color: AppColors.error),
                 const SizedBox(width: 10),
-                Text('Backup Failed', style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+                Expanded(
+                  child: Text('Backup Failed', style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+                ),
               ],
             ),
             content: Text(
@@ -1275,7 +1056,7 @@ class _BackupScreenState extends State<BackupScreen> {
           SettingsService.instance.setGoogleDriveConnection(enabled: true, email: _gdriveAccount, name: _gdriveName, path: _gdrivePath);
           SettingsService.instance.setPrimaryDrive('');
         } else {
-          _showGoogleDriveOptions();
+          _runGoogleOAuthFlow();
         }
       },
       child: Row(
