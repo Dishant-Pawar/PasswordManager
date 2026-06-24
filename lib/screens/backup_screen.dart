@@ -1,3 +1,4 @@
+// ignore_for_file: unused_element, unused_field
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -260,103 +261,7 @@ class _BackupScreenState extends State<BackupScreen> {
     }
   }
 
-  Future<void> _selectCustomFolder() async {
-    try {
-      final selectedPath = await FilePicker.getDirectoryPath(
-        dialogTitle: 'Select Backup Folder:',
-      );
 
-      if (selectedPath == null) return;
-
-      setState(() {
-        _isValidating = true;
-        _validatingDrivePath = selectedPath;
-      });
-
-      // Premium validation delay
-      await Future.delayed(const Duration(milliseconds: 800));
-
-      // Validate drive and accessibility
-      final exists = Directory(selectedPath).existsSync();
-      if (exists) {
-        String driveLetter = '';
-        if (Platform.isWindows && selectedPath.length >= 3 && selectedPath[1] == ':' && selectedPath[2] == '\\') {
-          driveLetter = selectedPath.substring(0, 3);
-        } else if (Platform.isWindows && selectedPath.length >= 2 && selectedPath[1] == ':') {
-          driveLetter = '${selectedPath.substring(0, 2)}\\';
-        } else {
-          driveLetter = '/';
-        }
-
-        if (Directory(driveLetter).existsSync()) {
-          await SettingsService.instance.setPrimaryDrive(driveLetter);
-          _primaryDrive = driveLetter;
-        }
-
-        await SettingsService.instance.setBackupDirectory(selectedPath);
-        await SettingsService.instance.setGoogleDriveConnection(enabled: false);
-        
-        setState(() {
-          _backupDirectory = selectedPath;
-          _gdriveEnabled = false;
-          _gdriveCloudSyncConnected = false;
-          _isValidating = false;
-          _validatingDrivePath = null;
-        });
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Backup location successfully set to $selectedPath', style: GoogleFonts.poppins()),
-              backgroundColor: AppColors.success,
-            ),
-          );
-        }
-      } else {
-        throw Exception('Selected folder path is not accessible.');
-      }
-    } catch (e) {
-      setState(() {
-        _isValidating = false;
-        _validatingDrivePath = null;
-      });
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            backgroundColor: AppColors.surface,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: Row(
-              children: [
-                const Icon(Icons.error_outline_rounded, color: AppColors.error),
-                const SizedBox(width: 10),
-                Text(
-                  'Invalid Folder',
-                  style: GoogleFonts.poppins(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-            content: Text(
-              'Failed to access the selected folder: $e. Please select a valid, accessible folder path.',
-              style: GoogleFonts.poppins(color: AppColors.textSecondary),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text(
-                  'OK',
-                  style: GoogleFonts.poppins(color: AppColors.primary, fontWeight: FontWeight.w600),
-                ),
-              ),
-            ],
-          ),
-        );
-      }
-    }
-  }
 
   void _showGoogleDriveOptions() {
     showDialog(
@@ -1066,11 +971,8 @@ class _BackupScreenState extends State<BackupScreen> {
                             // Cloud history if connected
                             if (_gdriveCloudSyncConnected) ...[
                               _buildCloudHistoryPanel(),
-                              const SizedBox(height: 28),
+                              const SizedBox(height: 40),
                             ],
-                            // Create backup manually
-                            _buildBackupActionCard(),
-                            const SizedBox(height: 100),
                           ],
                         ),
                       ),
@@ -1084,17 +986,11 @@ class _BackupScreenState extends State<BackupScreen> {
   }
 
   Widget _buildPrimaryLocationCard() {
-    final driveConfigured = _primaryDrive != null || _gdriveEnabled;
+    final driveConfigured = _gdriveEnabled;
     String locationText = 'Not Configured';
 
     if (_gdriveEnabled) {
-      if (_gdrivePath != null) {
-        locationText = _gdrivePath!;
-      } else {
-        locationText = 'Google Drive (Cloud Sync: $_gdriveAccount)';
-      }
-    } else if (_primaryDrive != null) {
-      locationText = _backupDirectory ?? '';
+      locationText = _gdrivePath ?? 'Google Drive (Cloud Sync: $_gdriveAccount)';
     }
 
     return GlassCard(
@@ -1113,8 +1009,8 @@ class _BackupScreenState extends State<BackupScreen> {
                 child: Icon(
                   _gdriveEnabled
                       ? Icons.cloud_done_rounded
-                      : (driveConfigured ? Icons.backup_rounded : Icons.warning_amber_rounded),
-                  color: _gdriveEnabled ? const Color(0xFF34A853) : (driveConfigured ? AppColors.primary : AppColors.warning),
+                      : Icons.warning_amber_rounded,
+                  color: _gdriveEnabled ? const Color(0xFF34A853) : AppColors.warning,
                   size: 24,
                 ),
               ),
@@ -1165,55 +1061,12 @@ class _BackupScreenState extends State<BackupScreen> {
                 ? (_gdrivePath != null
                     ? 'Sync folder configured. Backups will synchronize locally and upload to your Google Drive automatically.'
                     : 'Cloud account connected. Backups will sync to your secure Google Drive folder ("Application Backups").')
-                : (driveConfigured
-                    ? 'Backups will be created inside: \n$locationText'
-                    : 'Select an available destination below or configure a custom location.'),
+                : 'Connect and enable Google Drive Cloud sync to secure your vault data automatically.',
             style: GoogleFonts.poppins(
               color: AppColors.textSecondary,
               fontSize: 12,
               height: 1.45,
             ),
-          ),
-          const SizedBox(height: 16),
-          const Divider(color: AppColors.border, height: 1),
-          const SizedBox(height: 14),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Data Safety Guarantee',
-                      style: GoogleFonts.poppins(
-                        color: AppColors.textPrimary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Switching locations only redirects future backups. Your existing backups and local vault databases remain untouched.',
-                      style: GoogleFonts.poppins(
-                        color: AppColors.textSecondary,
-                        fontSize: 11,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              OutlineButton(
-                label: 'Custom Folder',
-                icon: Icons.folder_open_rounded,
-                onTap: _isValidating ? null : _selectCustomFolder,
-                width: 145,
-                height: 42,
-                fontSize: 12,
-              ),
-            ],
           ),
         ],
       ),
@@ -1403,8 +1256,6 @@ class _BackupScreenState extends State<BackupScreen> {
     return Column(
       children: [
         _buildGoogleDriveDestinationCard(),
-        const SizedBox(height: 10),
-        _buildDrivesSubList(),
       ],
     );
   }
@@ -1486,162 +1337,7 @@ class _BackupScreenState extends State<BackupScreen> {
     ).animate().fadeIn(delay: 220.ms).slideX(begin: 0.05, end: 0);
   }
 
-  Widget _buildDrivesSubList() {
-    if (_availableDrives.isEmpty) {
-      return SolidCard(
-        padding: const EdgeInsets.all(20),
-        child: Row(
-          children: [
-            const Icon(Icons.info_outline_rounded, color: AppColors.textSecondary),
-            const SizedBox(width: 12),
-            Text(
-              'No available storage drives detected.',
-              style: GoogleFonts.poppins(color: AppColors.textSecondary, fontSize: 13),
-            ),
-          ],
-        ),
-      ).animate().fadeIn(delay: 250.ms);
-    }
 
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: _availableDrives.length,
-      itemBuilder: (context, idx) {
-        final driveInfo = _availableDrives[idx];
-        final name = driveInfo['name'] ?? '';
-        final path = driveInfo['path'] ?? '';
-        
-        final isPrimary = _primaryDrive == path && !_gdriveEnabled;
-        final isValidatingCurrent = _isValidating && _validatingDrivePath == path;
-
-        return Container(
-          margin: const EdgeInsets.only(bottom: 10),
-          child: SolidCard(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            color: isPrimary ? AppColors.primary.withValues(alpha: 0.08) : AppColors.surface,
-            onTap: _isValidating ? null : () => _selectPrimaryDrive(path),
-            child: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: (isPrimary ? AppColors.primary : AppColors.textSecondary).withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    Icons.storage_rounded,
-                    color: isPrimary ? AppColors.primary : AppColors.textSecondary,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        name,
-                        style: GoogleFonts.poppins(
-                          color: AppColors.textPrimary,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      Text(
-                        isPrimary ? 'Selected Primary Location' : 'Available Storage Path',
-                        style: GoogleFonts.poppins(
-                          color: isPrimary ? AppColors.primary : AppColors.textSecondary,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (isValidatingCurrent)
-                  const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation(AppColors.primary),
-                    ),
-                  )
-                else if (isPrimary)
-                  const Icon(
-                    Icons.check_circle_rounded,
-                    color: AppColors.primary,
-                    size: 22,
-                  )
-                else
-                  const Icon(
-                    Icons.radio_button_off_rounded,
-                    color: AppColors.textHint,
-                    size: 22,
-                  )
-              ],
-            ),
-          ),
-        ).animate().fadeIn(delay: Duration(milliseconds: 280 + idx * 60)).slideX(begin: 0.05, end: 0);
-      },
-    );
-  }
-
-  Widget _buildBackupActionCard() {
-    final driveConfigured = _primaryDrive != null || _gdriveEnabled;
-    return GlassCard(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(
-                'Manual Backup',
-                style: GoogleFonts.poppins(
-                  color: AppColors.textPrimary,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const Spacer(),
-              const Icon(
-                Icons.security_rounded,
-                color: AppColors.success,
-                size: 18,
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Encrypt and export your passwords and documents immediately. The backup files will be saved in your configured Primary location.',
-            style: GoogleFonts.poppins(
-              color: AppColors.textSecondary,
-              fontSize: 12,
-              height: 1.45,
-            ),
-          ),
-          const SizedBox(height: 20),
-          _isBackingUp
-              ? const Center(
-                  child: Column(
-                    children: [
-                      CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(AppColors.primary)),
-                      SizedBox(height: 8),
-                      Text('Running backup...', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-                    ],
-                  ),
-                )
-              : GradientButton(
-                  label: 'Run Backup Now',
-                  icon: Icons.play_arrow_rounded,
-                  onTap: driveConfigured ? _showBackupPassphraseDialog : null,
-                ),
-        ],
-      ),
-    ).animate().fadeIn(delay: 400.ms).slideY(begin: 0.1, end: 0);
-  }
 
   Widget _buildBottomNav(BuildContext context) {
     return Container(

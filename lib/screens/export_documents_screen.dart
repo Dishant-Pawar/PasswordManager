@@ -10,6 +10,7 @@ import 'package:crypto/crypto.dart' as crypto;
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import '../services/database_helper.dart';
+import '../services/gdrive_service.dart';
 
 class ExportDocumentsScreen extends StatefulWidget {
   const ExportDocumentsScreen({super.key});
@@ -22,6 +23,51 @@ class _ExportDocumentsScreenState extends State<ExportDocumentsScreen> {
   final _passphraseCtrl = TextEditingController();
   final _confirmCtrl = TextEditingController();
   bool _exporting = false;
+  bool _exportToGDrive = false;
+  bool _gdriveConnected = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkGDriveStatus();
+  }
+
+  void _checkGDriveStatus() async {
+    final signedIn = await GDriveService.instance.isSignedIn();
+    if (mounted) {
+      setState(() {
+        _gdriveConnected = signedIn;
+      });
+    }
+  }
+
+  void _connectGDrive() async {
+    try {
+      final account = await GDriveService.instance.signIn();
+      if (account != null) {
+        setState(() {
+          _gdriveConnected = true;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Connected to Google Drive as ${account.email}', style: GoogleFonts.poppins()),
+              backgroundColor: AppColors.success,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Connection failed: $e', style: GoogleFonts.poppins()),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
 
   double get _strength {
     final v = _passphraseCtrl.text;
@@ -97,6 +143,26 @@ class _ExportDocumentsScreenState extends State<ExportDocumentsScreen> {
       final backupString = jsonEncode(backupPayload);
       final bytes = Uint8List.fromList(utf8.encode(backupString));
 
+      if (_exportToGDrive) {
+        if (!_gdriveConnected) {
+          throw Exception('Google Drive is not connected. Please connect first.');
+        }
+        final now = DateTime.now();
+        final timestamp = '${now.year}${_pad(now.month)}${_pad(now.day)}_${_pad(now.hour)}${_pad(now.minute)}${_pad(now.second)}';
+        final driveFileName = 'documents_export_$timestamp.sdm';
+        
+        await GDriveService.instance.uploadFileBytes(
+          bytes: bytes,
+          driveFileName: driveFileName,
+        );
+
+        if (mounted) {
+          setState(() => _exporting = false);
+          _showSuccess('Google Drive: Application Backups/$driveFileName');
+        }
+        return;
+      }
+
       // 7. Save file via FilePicker
       String? outputFile = await FilePicker.saveFile(
         dialogTitle: 'Save Export As:',
@@ -129,11 +195,13 @@ class _ExportDocumentsScreenState extends State<ExportDocumentsScreen> {
       if (mounted) {
         setState(() => _exporting = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save file: $e', style: GoogleFonts.poppins()), backgroundColor: AppColors.error),
+          SnackBar(content: Text('Failed to export: $e', style: GoogleFonts.poppins()), backgroundColor: AppColors.error),
         );
       }
     }
   }
+
+  String _pad(int value) => value.toString().padLeft(2, '0');
 
   void _showSuccess(String savedPath) {
     showDialog(
@@ -311,6 +379,76 @@ class _ExportDocumentsScreenState extends State<ExportDocumentsScreen> {
                           ],
                         ),
                       ).animate().fadeIn(delay: 360.ms),
+                      const SizedBox(height: 24),
+                      // Destination selection
+                      GlassCard(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'EXPORT DESTINATION',
+                              style: GoogleFonts.poppins(
+                                color: AppColors.textSecondary,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            RadioListTile<bool>(
+                              value: false,
+                              groupValue: _exportToGDrive,
+                              onChanged: (v) {
+                                setState(() {
+                                  _exportToGDrive = v!;
+                                });
+                              },
+                              activeColor: AppColors.primary,
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(
+                                'Local File Storage',
+                                style: GoogleFonts.poppins(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w500),
+                              ),
+                              subtitle: Text(
+                                'Save as a local .sdm file on your device',
+                                style: GoogleFonts.poppins(color: AppColors.textSecondary, fontSize: 11),
+                              ),
+                            ),
+                            const Divider(color: AppColors.border, height: 1),
+                            RadioListTile<bool>(
+                              value: true,
+                              groupValue: _exportToGDrive,
+                              onChanged: (v) {
+                                setState(() {
+                                  _exportToGDrive = v!;
+                                });
+                                if (v! && !_gdriveConnected) {
+                                  _checkGDriveStatus();
+                                }
+                              },
+                              activeColor: AppColors.primary,
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(
+                                'Google Drive Cloud',
+                                style: GoogleFonts.poppins(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w500),
+                              ),
+                              subtitle: Text(
+                                'Export directly to secure Google Drive folder',
+                                style: GoogleFonts.poppins(color: AppColors.textSecondary, fontSize: 11),
+                              ),
+                            ),
+                            if (_exportToGDrive && !_gdriveConnected) ...[
+                              const SizedBox(height: 12),
+                              GradientButton(
+                                label: 'Connect Google Drive',
+                                icon: Icons.cloud_queue_rounded,
+                                onTap: _connectGDrive,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ).animate().fadeIn(delay: 400.ms),
                       const SizedBox(height: 24),
                       PassphraseField(
                         label: 'Enter Passphrase',

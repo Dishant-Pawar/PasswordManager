@@ -161,4 +161,50 @@ class GDriveService {
       return [];
     }
   }
+
+  // Upload raw bytes directly to the dedicated folder on Google Drive
+  Future<drive.File> uploadFileBytes({
+    required List<int> bytes,
+    required String driveFileName,
+    String folderName = "Application Backups",
+  }) async {
+    await currentUser;
+    if (_driveApi == null) throw Exception("Google Drive Client is not authenticated.");
+
+    final folderId = await _getOrCreateFolder(folderName);
+
+    final mediaStream = Stream.value(bytes);
+    final uploadMedia = drive.Media(mediaStream, bytes.length);
+
+    final fileMetadata = drive.File()
+      ..name = driveFileName
+      ..parents = [folderId];
+
+    return await _driveApi!.files.create(
+      fileMetadata,
+      uploadMedia: uploadMedia,
+      $fields: 'id, name, size, createdTime',
+    );
+  }
+
+  // Download a file's media bytes from Google Drive using its fileId
+  Future<List<int>> downloadFile(String fileId) async {
+    await currentUser;
+    if (_driveApi == null) throw Exception("Google Drive Client is not authenticated.");
+
+    final response = await _driveApi!.files.get(
+      fileId,
+      downloadOptions: drive.DownloadOptions.fullMedia,
+    );
+
+    if (response is drive.Media) {
+      final List<int> bytes = [];
+      await for (final chunk in response.stream) {
+        bytes.addAll(chunk);
+      }
+      return bytes;
+    } else {
+      throw Exception("Failed to download file media.");
+    }
+  }
 }
