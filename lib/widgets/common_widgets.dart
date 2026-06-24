@@ -487,6 +487,8 @@ class DocumentTile extends StatelessWidget {
   final String type;
   final VoidCallback? onTap;
   final VoidCallback? onDelete;
+  final VoidCallback? onDownload;
+  final VoidCallback? onShare;
 
   const DocumentTile({
     super.key,
@@ -495,6 +497,8 @@ class DocumentTile extends StatelessWidget {
     required this.type,
     this.onTap,
     this.onDelete,
+    this.onDownload,
+    this.onShare,
   });
 
   Color get _typeColor {
@@ -570,6 +574,24 @@ class DocumentTile extends StatelessWidget {
                 ],
               ),
             ),
+            if (onDownload != null)
+              IconButton(
+                icon: const Icon(
+                  Icons.file_download_rounded,
+                  color: AppColors.primary,
+                  size: 22,
+                ),
+                onPressed: onDownload,
+              ),
+            if (onShare != null)
+              IconButton(
+                icon: const Icon(
+                  Icons.share_rounded,
+                  color: AppColors.accent,
+                  size: 20,
+                ),
+                onPressed: onShare,
+              ),
             if (onDelete != null)
               IconButton(
                 icon: const Icon(
@@ -579,7 +601,7 @@ class DocumentTile extends StatelessWidget {
                 ),
                 onPressed: onDelete,
               )
-            else
+            else if (onDownload == null && onShare == null)
               const Icon(
                 Icons.chevron_right_rounded,
                 color: AppColors.textSecondary,

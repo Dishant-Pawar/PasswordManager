@@ -7,6 +7,8 @@ import '../services/database_helper.dart';
 import '../models/document_item.dart';
 import 'dart:io';
 import 'package:open_filex/open_filex.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:flutter_file_dialog/flutter_file_dialog.dart';
 
 class DocumentsListScreen extends StatefulWidget {
   const DocumentsListScreen({super.key});
@@ -109,6 +111,95 @@ class _DocumentsListScreenState extends State<DocumentsListScreen> {
             ),
           );
         }
+      }
+    }
+  }
+
+  Future<void> _downloadDocument(DocumentItem d) async {
+    if (d.filePath.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Invalid file path', style: GoogleFonts.poppins()),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+    final file = File(d.filePath);
+    final exists = await file.exists();
+    if (!mounted) return;
+    if (!exists) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('File does not exist or was deleted', style: GoogleFonts.poppins()),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
+    try {
+      final params = SaveFileDialogParams(sourceFilePath: d.filePath);
+      final savedPath = await FlutterFileDialog.saveFile(params: params);
+      
+      if (savedPath != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Document successfully saved/downloaded.', style: GoogleFonts.poppins()),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save document: $e', style: GoogleFonts.poppins()),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _shareDocument(DocumentItem d) async {
+    if (d.filePath.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Invalid file path', style: GoogleFonts.poppins()),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+    final file = File(d.filePath);
+    final exists = await file.exists();
+    if (!mounted) return;
+    if (!exists) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('File does not exist or was deleted', style: GoogleFonts.poppins()),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
+    try {
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(d.filePath, name: d.name)],
+          subject: d.name,
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to share document: $e', style: GoogleFonts.poppins()),
+            backgroundColor: AppColors.error,
+          ),
+        );
       }
     }
   }
@@ -251,6 +342,8 @@ class _DocumentsListScreenState extends State<DocumentsListScreen> {
                                   }
                                 },
                                 onDelete: () => _deleteDocument(d),
+                                onDownload: () => _downloadDocument(d),
+                                onShare: () => _shareDocument(d),
                               )
                                   .animate()
                                   .fadeIn(delay: Duration(milliseconds: 100 * i))
