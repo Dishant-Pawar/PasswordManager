@@ -1,4 +1,7 @@
 import 'dart:io';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+import 'package:flutter/rendering.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
@@ -147,12 +150,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               type: FileType.image,
                               allowMultiple: false,
                             );
-                            if (result != null && result.files.single.path != null) {
-                              setDialogState(() {
-                                localPhotoPath = result.files.single.path;
-                                localPhotoUrl = '';
-                                photoUrlController.clear();
-                              });
+                            if (result != null && result.files.single.path != null && context.mounted) {
+                              _showAdjustImageDialog(
+                                context,
+                                result.files.single.path!,
+                                (adjustedPath) {
+                                  setDialogState(() {
+                                    localPhotoPath = adjustedPath;
+                                    localPhotoUrl = '';
+                                    photoUrlController.clear();
+                                  });
+                                },
+                              );
                             }
                           },
                           icon: const Icon(Icons.photo_library_rounded, size: 16),
@@ -526,6 +535,193 @@ class _DashboardScreenState extends State<DashboardScreen> {
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );
   }
+
+  void _showAdjustImageDialog(
+    BuildContext context,
+    String imagePath,
+    Function(String) onDone,
+  ) {
+    final boundaryKey = GlobalKey();
+    final transformationController = TransformationController();
+    int quarterTurns = 0;
+    double currentZoom = 1.0;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            backgroundColor: AppColors.surface,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: Text(
+              'Adjust Photo',
+              style: GoogleFonts.poppins(
+                color: AppColors.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Drag to pan, pinch or use the slider to zoom. Rotate if needed.',
+                  style: GoogleFonts.poppins(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                Center(
+                  child: Stack(
+                    children: [
+                      ClipRect(
+                        child: RepaintBoundary(
+                          key: boundaryKey,
+                          child: Container(
+                            width: 250,
+                            height: 250,
+                            color: Colors.black,
+                            child: Center(
+                              child: InteractiveViewer(
+                                transformationController: transformationController,
+                                minScale: 0.1,
+                                maxScale: 8.0,
+                                onInteractionUpdate: (details) {
+                                  final matrix = transformationController.value;
+                                  final scale = matrix.getMaxScaleOnAxis();
+                                  setDialogState(() {
+                                    currentZoom = scale.clamp(1.0, 8.0);
+                                  });
+                                },
+                                child: RotatedBox(
+                                  quarterTurns: quarterTurns,
+                                  child: Image.file(
+                                    File(imagePath),
+                                    fit: BoxFit.contain,
+                                    width: double.infinity,
+                                    height: double.infinity,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      IgnorePointer(
+                        child: SizedBox(
+                          width: 250,
+                          height: 250,
+                          child: CustomPaint(
+                            painter: CropMaskPainter(
+                              borderColor: AppColors.primary,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    const Icon(Icons.zoom_out_rounded, color: AppColors.textSecondary, size: 20),
+                    Expanded(
+                      child: Slider(
+                        value: currentZoom,
+                        min: 1.0,
+                        max: 8.0,
+                        activeColor: AppColors.primary,
+                        inactiveColor: AppColors.border,
+                        onChanged: (val) {
+                          setDialogState(() {
+                            currentZoom = val;
+                          });
+                          final matrix = Matrix4.diagonal3Values(val, val, 1.0);
+                          transformationController.value = matrix;
+                        },
+                      ),
+                    ),
+                    const Icon(Icons.zoom_in_rounded, color: AppColors.textSecondary, size: 20),
+                  ],
+                ),
+                TextButton.icon(
+                  onPressed: () {
+                    setDialogState(() {
+                      quarterTurns = (quarterTurns + 1) % 4;
+                    });
+                  },
+                  icon: const Icon(Icons.rotate_right_rounded, color: AppColors.primary),
+                  label: Text(
+                    'Rotate 90°',
+                    style: GoogleFonts.poppins(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text(
+                  'Cancel',
+                  style: GoogleFonts.poppins(
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () async {
+                  try {
+                    final RenderRepaintBoundary? boundary = boundaryKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+                    if (boundary == null) return;
+                    
+                    final ui.Image image = await boundary.toImage(pixelRatio: 3.0);
+                    final ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+                    if (byteData == null) return;
+                    
+                    final Uint8List pngBytes = byteData.buffer.asUint8List();
+                    
+                    final tempDir = await getTemporaryDirectory();
+                    final tempPath = p.join(tempDir.path, 'adjusted_profile_${DateTime.now().millisecondsSinceEpoch}.png');
+                    final file = File(tempPath);
+                    await file.writeAsBytes(pngBytes);
+                    
+                    if (ctx.mounted) {
+                      Navigator.pop(ctx);
+                      onDone(tempPath);
+                    }
+                  } catch (e) {
+                    debugPrint("Error cropping image: $e");
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Failed to adjust photo. Please try again.', style: GoogleFonts.poppins()),
+                          backgroundColor: AppColors.error,
+                        ),
+                      );
+                    }
+                  }
+                },
+                child: Text(
+                  'Apply',
+                  style: GoogleFonts.poppins(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
 }
 
 class _BottomNav extends StatelessWidget {
@@ -636,3 +832,42 @@ class _BottomNav extends StatelessWidget {
     );
   }
 }
+
+class CropMaskPainter extends CustomPainter {
+  final Color borderColor;
+  
+  CropMaskPainter({required this.borderColor});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.6)
+      ..style = PaintingStyle.fill;
+
+    final outerPath = Path()..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
+    final innerPath = Path()..addOval(Rect.fromCircle(
+      center: Offset(size.width / 2, size.height / 2),
+      radius: size.width / 2,
+    ));
+
+    final path = Path.combine(PathOperation.difference, outerPath, innerPath);
+    canvas.drawPath(path, paint);
+
+    final borderPaint = Paint()
+      ..color = borderColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    
+    canvas.drawOval(
+      Rect.fromCircle(
+        center: Offset(size.width / 2, size.height / 2),
+        radius: size.width / 2,
+      ),
+      borderPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
