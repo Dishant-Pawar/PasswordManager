@@ -215,7 +215,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       keyboardType: TextInputType.emailAddress,
                       validator: (val) {
                         if (val == null || val.trim().isEmpty) {
-                          return 'Email cannot be empty';
+                          return null;
                         }
                         final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
                         if (!emailRegex.hasMatch(val.trim())) {
