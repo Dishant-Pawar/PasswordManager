@@ -99,6 +99,25 @@ CREATE TABLE documents (
     }
   }
 
+  Future<bool> openDatabaseWithDerivedKey(String derivedKey) async {
+    if (_database != null) {
+      await close();
+    }
+
+    _dbPassword = derivedKey;
+
+    try {
+      _database = await _initDB('securevault.db');
+      // Test query to verify encryption key is correct (independent of table structures)
+      await _database!.rawQuery('SELECT 1');
+      return true;
+    } catch (e) {
+      _dbPassword = null;
+      _database = null;
+      return false;
+    }
+  }
+
   Future<void> createAndOpenDatabase(String masterPassword) async {
     final random = Random.secure();
     final saltBytes = Uint8List.fromList(List.generate(16, (_) => random.nextInt(256)));
@@ -183,7 +202,7 @@ CREATE TABLE documents (
     final db = await instance.database;
     final id = await db.insert('passwords', password.toMap());
     final result = password.copyWith(id: id);
-    unawaited(AutoBackupHelper.triggerAutoBackup());
+    unawaited(AutoBackupHelper.triggerAutoBackup(passwords: true));
     return result;
   }
 
@@ -215,7 +234,7 @@ CREATE TABLE documents (
         }
       }
     });
-    unawaited(AutoBackupHelper.triggerAutoBackup());
+    unawaited(AutoBackupHelper.triggerAutoBackup(passwords: true));
   }
 
   Future<PasswordItem?> readPassword(int id) async {
@@ -248,7 +267,7 @@ CREATE TABLE documents (
       where: 'id = ?',
       whereArgs: [password.id],
     );
-    unawaited(AutoBackupHelper.triggerAutoBackup());
+    unawaited(AutoBackupHelper.triggerAutoBackup(passwords: true));
     return result;
   }
 
@@ -259,7 +278,7 @@ CREATE TABLE documents (
       where: 'id = ?',
       whereArgs: [id],
     );
-    unawaited(AutoBackupHelper.triggerAutoBackup());
+    unawaited(AutoBackupHelper.triggerAutoBackup(passwords: true));
     return result;
   }
 
@@ -271,7 +290,7 @@ CREATE TABLE documents (
     final db = await instance.database;
     final id = await db.insert('documents', document.toMap());
     final result = document.copyWith(id: id);
-    unawaited(AutoBackupHelper.triggerAutoBackup());
+    unawaited(AutoBackupHelper.triggerAutoBackup(documents: true));
     return result;
   }
 
@@ -282,7 +301,7 @@ CREATE TABLE documents (
         await txn.insert('documents', item.toMap());
       }
     });
-    unawaited(AutoBackupHelper.triggerAutoBackup());
+    unawaited(AutoBackupHelper.triggerAutoBackup(documents: true));
   }
 
   Future<DocumentItem?> readDocument(int id) async {
@@ -315,7 +334,7 @@ CREATE TABLE documents (
       where: 'id = ?',
       whereArgs: [document.id],
     );
-    unawaited(AutoBackupHelper.triggerAutoBackup());
+    unawaited(AutoBackupHelper.triggerAutoBackup(documents: true));
     return result;
   }
 
@@ -326,7 +345,7 @@ CREATE TABLE documents (
       where: 'id = ?',
       whereArgs: [id],
     );
-    unawaited(AutoBackupHelper.triggerAutoBackup());
+    unawaited(AutoBackupHelper.triggerAutoBackup(documents: true));
     return result;
   }
 

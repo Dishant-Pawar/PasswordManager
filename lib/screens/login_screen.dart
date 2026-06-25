@@ -5,6 +5,9 @@ import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import '../services/database_helper.dart';
 import '../services/settings_service.dart';
+import 'package:local_auth/local_auth.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -16,6 +19,90 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _controller = TextEditingController();
   bool _loading = false;
+  bool _canUseBiometrics = false;
+  final LocalAuthentication _auth = LocalAuthentication();
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
+
+  @override
+  void initState() {
+    super.initState();
+    _checkBiometrics();
+  }
+
+  Future<void> _checkBiometrics() async {
+    final settings = await SettingsService.instance.loadSettings();
+    final enabled = settings['biometric_enabled'] as bool? ?? false;
+    
+    if (enabled) {
+      try {
+        final bool canCheck = await _auth.canCheckBiometrics;
+        final bool isSupported = await _auth.isDeviceSupported();
+        final hasSavedKey = await _secureStorage.containsKey(key: 'db_derived_key');
+
+        if (canCheck && isSupported && hasSavedKey) {
+          setState(() {
+            _canUseBiometrics = true;
+          });
+          // Auto-trigger biometric prompt after layout builds
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _authenticateWithBiometrics();
+          });
+        }
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _authenticateWithBiometrics() async {
+    if (!_canUseBiometrics) return;
+
+    try {
+      final bool didAuthenticate = await _auth.authenticate(
+        localizedReason: 'Authenticate to unlock your SecureVault',
+        biometricOnly: true,
+      );
+
+      if (didAuthenticate) {
+        setState(() => _loading = true);
+        final derivedKey = await _secureStorage.read(key: 'db_derived_key');
+        if (derivedKey != null) {
+          final isOpened = await DatabaseHelper.instance.openDatabaseWithDerivedKey(derivedKey);
+          if (mounted) {
+            setState(() => _loading = false);
+            if (isOpened) {
+              Navigator.pushReplacementNamed(context, '/dashboard');
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Failed to open database with saved key. Please enter password.', style: GoogleFonts.poppins()),
+                  backgroundColor: AppColors.error,
+                ),
+              );
+            }
+          }
+        } else {
+          if (mounted) {
+            setState(() => _loading = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('No biometric key found. Please enter password.', style: GoogleFonts.poppins()),
+                backgroundColor: AppColors.error,
+              ),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Biometric authentication error: $e', style: GoogleFonts.poppins()),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
 
   void _unlock() async {
     final password = _controller.text;
@@ -261,7 +348,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
-                    onPressed: () {},
+                    onPressed: _showForgotDialog,
                     child: Text(
                       'Forgot Password?',
                       style: GoogleFonts.poppins(
@@ -289,53 +376,55 @@ class _LoginScreenState extends State<LoginScreen> {
                           .animate()
                           .fadeIn(delay: 500.ms)
                           .slideY(begin: 0.2, end: 0),
-                const SizedBox(height: 32),
-                // Divider
-                Row(
-                  children: [
-                    const Expanded(child: Divider(color: AppColors.border)),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        'or use fingerprint',
-                        style: GoogleFonts.poppins(
-                          color: AppColors.textSecondary,
-                          fontSize: 13,
+                if (_canUseBiometrics) ...[
+                  const SizedBox(height: 32),
+                  // Divider
+                  Row(
+                    children: [
+                      const Expanded(child: Divider(color: AppColors.border)),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          'or use fingerprint',
+                          style: GoogleFonts.poppins(
+                            color: AppColors.textSecondary,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
-                    ),
-                    const Expanded(child: Divider(color: AppColors.border)),
-                  ],
-                ).animate().fadeIn(delay: 600.ms),
-                const SizedBox(height: 24),
-                // Fingerprint button
-                GestureDetector(
-                      onTap: _unlock,
-                      child: Container(
-                        width: 72,
-                        height: 72,
-                        decoration: BoxDecoration(
-                          color: AppColors.surface,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: AppColors.border, width: 1),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.primary.withValues(alpha: 0.1),
-                              blurRadius: 20,
-                              spreadRadius: 2,
-                            ),
-                          ],
+                      const Expanded(child: Divider(color: AppColors.border)),
+                    ],
+                  ).animate().fadeIn(delay: 600.ms),
+                  const SizedBox(height: 24),
+                  // Fingerprint button
+                  GestureDetector(
+                        onTap: _authenticateWithBiometrics,
+                        child: Container(
+                          width: 72,
+                          height: 72,
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: AppColors.border, width: 1),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.primary.withValues(alpha: 0.1),
+                                blurRadius: 20,
+                                spreadRadius: 2,
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.fingerprint_rounded,
+                            color: AppColors.primary,
+                            size: 38,
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.fingerprint_rounded,
-                          color: AppColors.primary,
-                          size: 38,
-                        ),
-                      ),
-                    )
-                    .animate()
-                    .fadeIn(delay: 700.ms)
-                    .scale(begin: const Offset(0.8, 0.8)),
+                      )
+                      .animate()
+                      .fadeIn(delay: 700.ms)
+                      .scale(begin: const Offset(0.8, 0.8)),
+                ],
                 const Spacer(),
                 // Not registered?
                 Row(

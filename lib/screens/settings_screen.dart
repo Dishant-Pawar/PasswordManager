@@ -12,6 +12,8 @@ import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import '../services/settings_service.dart';
 import '../services/database_helper.dart';
+import 'package:local_auth/local_auth.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 
 class SettingsScreen extends StatefulWidget {
@@ -34,6 +36,91 @@ class SettingsScreenState extends State<SettingsScreen> {
   String? _profilePhotoUrl;
   String? _profilePhotoPath;
   String _passwordHint = '';
+
+  final LocalAuthentication _auth = LocalAuthentication();
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
+
+  Future<void> _toggleBiometric(bool enabled) async {
+    if (enabled) {
+      try {
+        final bool canAuthenticateWithBiometrics = await _auth.canCheckBiometrics;
+        final bool isDeviceSupported = await _auth.isDeviceSupported();
+        
+        if (!canAuthenticateWithBiometrics || !isDeviceSupported) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Biometric authentication is not available or not set up on this device.',
+                  style: GoogleFonts.poppins(),
+                ),
+                backgroundColor: AppColors.error,
+              ),
+            );
+          }
+          setState(() => _biometric = false);
+          return;
+        }
+
+        final bool didAuthenticate = await _auth.authenticate(
+          localizedReason: 'Confirm fingerprint to enable biometric lock',
+          biometricOnly: true,
+        );
+
+        if (didAuthenticate) {
+          final derivedKey = DatabaseHelper.databasePassword;
+          if (derivedKey != null) {
+            await _secureStorage.write(key: 'db_derived_key', value: derivedKey);
+            await SettingsService.instance.saveSetting('biometric_enabled', true);
+            setState(() => _biometric = true);
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Fingerprint lock enabled successfully.',
+                    style: GoogleFonts.poppins(),
+                  ),
+                  backgroundColor: AppColors.success,
+                ),
+              );
+            }
+          } else {
+            setState(() => _biometric = false);
+          }
+        } else {
+          setState(() => _biometric = false);
+        }
+      } catch (e) {
+        setState(() => _biometric = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Biometric authentication failed: $e',
+                style: GoogleFonts.poppins(),
+              ),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+      }
+    } else {
+      await _secureStorage.delete(key: 'db_derived_key');
+      await SettingsService.instance.saveSetting('biometric_enabled', false);
+      setState(() => _biometric = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Fingerprint lock disabled.',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: AppColors.primary,
+          ),
+        );
+      }
+    }
+  }
 
   @override
   void initState() {
@@ -184,10 +271,7 @@ class SettingsScreenState extends State<SettingsScreen> {
                               iconColor: AppColors.primary,
                               trailing: Switch(
                                 value: _biometric,
-                                onChanged: (v) async {
-                                  setState(() => _biometric = v);
-                                  await SettingsService.instance.saveSetting('biometric_enabled', v);
-                                },
+                                onChanged: _toggleBiometric,
                                 activeThumbColor: AppColors.primary,
                               ),
                             ),

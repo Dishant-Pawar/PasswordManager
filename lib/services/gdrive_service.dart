@@ -207,4 +207,105 @@ class GDriveService {
       throw Exception("Failed to download file media.");
     }
   }
+
+  // Delete a file from Google Drive using its fileId
+  Future<void> deleteFile(String fileId) async {
+    await currentUser;
+    if (_driveApi == null) throw Exception("Google Drive Client is not authenticated.");
+    await _driveApi!.files.delete(fileId);
+  }
+
+  // Generate backup prefix formatted as backup_Day_YYYY-MM-DD_HH-MM-SS
+  static String generateBackupPrefix() {
+    final now = DateTime.now();
+    final dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    final dayName = dayNames[now.weekday - 1];
+    
+    final year = now.year.toString();
+    final month = now.month.toString().padLeft(2, '0');
+    final day = now.day.toString().padLeft(2, '0');
+    
+    final hour = now.hour.toString().padLeft(2, '0');
+    final minute = now.minute.toString().padLeft(2, '0');
+    final second = now.second.toString().padLeft(2, '0');
+    
+    return 'backup_${dayName}_$year-$month-${day}_$hour-$minute-$second';
+  }
+
+  // Prune old backups, keeping only the last 2 backup sets (pairs of pwm/sdm) on Google Drive
+  Future<void> pruneOldBackups({String folderName = "Application Backups"}) async {
+    await currentUser;
+    if (_driveApi == null) return;
+
+    try {
+      final folderId = await _getOrCreateFolder(folderName);
+      final query = "'$folderId' in parents and trashed = false";
+      final fileList = await _driveApi!.files.list(
+        q: query,
+        $fields: 'files(id, name, size, createdTime)',
+      );
+      
+      final files = fileList.files;
+      if (files == null || files.isEmpty) return;
+
+      // Group files by backup prefix
+      final Map<String, List<drive.File>> backups = {};
+
+      for (final file in files) {
+        final name = file.name;
+        if (name == null) continue;
+
+        String? prefix;
+        if (name.endsWith('_vault.pwm')) {
+          prefix = name.substring(0, name.length - '_vault.pwm'.length);
+        } else if (name.endsWith('_documents.sdm')) {
+          prefix = name.substring(0, name.length - '_documents.sdm'.length);
+        }
+
+        if (prefix != null) {
+          if (!backups.containsKey(prefix)) {
+            backups[prefix] = [];
+          }
+          backups[prefix]!.add(file);
+        }
+      }
+
+      if (backups.length <= 2) return;
+
+      // For each backup group, determine its timestamp using file createdTime metadata
+      final List<MapEntry<String, DateTime>> backupTimes = [];
+      for (final entry in backups.entries) {
+        DateTime? latestTime;
+        for (final file in entry.value) {
+          if (file.createdTime != null) {
+            if (latestTime == null || file.createdTime!.isAfter(latestTime)) {
+              latestTime = file.createdTime;
+            }
+          }
+        }
+        backupTimes.add(MapEntry(entry.key, latestTime ?? DateTime.now()));
+      }
+
+      // Sort backup groups descending by createdTime (newest first)
+      backupTimes.sort((a, b) => b.value.compareTo(a.value));
+
+      // Keep index 0 and 1, delete index >= 2
+      for (int i = 2; i < backupTimes.length; i++) {
+        final prefixToDelete = backupTimes[i].key;
+        final filesToDelete = backups[prefixToDelete]!;
+        for (final file in filesToDelete) {
+          if (file.id != null) {
+            try {
+              await deleteFile(file.id!);
+              debugPrint('Deleted old backup file: ${file.name}');
+            } catch (e) {
+              debugPrint('Failed to delete old backup file ${file.name}: $e');
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error pruning old backups: $e');
+    }
+  }
 }

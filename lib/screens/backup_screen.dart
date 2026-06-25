@@ -532,8 +532,7 @@ class BackupScreenState extends State<BackupScreen> {
       final docBackupString = jsonEncode(docBackupPayload);
       final docBytes = Uint8List.fromList(utf8.encode(docBackupString));
 
-      final now = DateTime.now();
-      final folderName = 'backup_${now.year}${_pad(now.month)}${_pad(now.day)}_${_pad(now.hour)}${_pad(now.minute)}${_pad(now.second)}';
+      final folderName = GDriveService.generateBackupPrefix();
 
       if (_gdriveEnabled && _gdrivePath == null) {
         // Direct Cloud Sync API Upload
@@ -573,6 +572,9 @@ class BackupScreenState extends State<BackupScreen> {
           await docTemp.delete();
         } catch (_) {}
 
+        // Prune old Google Drive backups
+        await GDriveService.instance.pruneOldBackups();
+
         setState(() => _isBackingUp = false);
         _showSuccessDialog('Google Drive Cloud (Application Backups/$folderName)');
         _fetchGDriveMetadata();
@@ -600,6 +602,9 @@ class BackupScreenState extends State<BackupScreen> {
 
         final docFile = File(p.join(backupDir.path, 'documents_backup.sdm'));
         await docFile.writeAsBytes(docBytes);
+
+        // Prune old local backups
+        await pruneLocalBackups(backupLocation);
 
         setState(() => _isBackingUp = false);
         _showSuccessDialog(backupDir.path);
@@ -638,6 +643,49 @@ class BackupScreenState extends State<BackupScreen> {
   }
 
   String _pad(int value) => value.toString().padLeft(2, '0');
+
+  static Future<void> pruneLocalBackups(String backupLocation) async {
+    try {
+      final dir = Directory(backupLocation);
+      if (!await dir.exists()) return;
+
+      final List<FileSystemEntity> entities = await dir.list().toList();
+      final List<Directory> backupDirs = [];
+
+      for (final entity in entities) {
+        if (entity is Directory) {
+          final name = p.basename(entity.path);
+          if (name.startsWith('backup_')) {
+            backupDirs.add(entity);
+          }
+        }
+      }
+
+      if (backupDirs.length <= 2) return;
+
+      final List<MapEntry<Directory, DateTime>> dirTimes = [];
+      for (final backupDir in backupDirs) {
+        final stat = await backupDir.stat();
+        dirTimes.add(MapEntry(backupDir, stat.modified));
+      }
+
+      // Sort descending (newest first)
+      dirTimes.sort((a, b) => b.value.compareTo(a.value));
+
+      // Keep index 0 and 1, delete index >= 2
+      for (int i = 2; i < dirTimes.length; i++) {
+        final dirToDelete = dirTimes[i].key;
+        try {
+          await dirToDelete.delete(recursive: true);
+          debugPrint('Deleted old local backup folder: ${dirToDelete.path}');
+        } catch (e) {
+          debugPrint('Failed to delete old local backup folder ${dirToDelete.path}: $e');
+        }
+      }
+    } catch (e) {
+      debugPrint('Error pruning local backups: $e');
+    }
+  }
 
   String _formatBytes(int bytes) {
     if (bytes < 1024) return '$bytes B';
