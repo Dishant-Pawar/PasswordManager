@@ -13,7 +13,9 @@ import '../widgets/common_widgets.dart';
 
 import '../services/database_helper.dart';
 import '../models/password_item.dart';
+import '../models/document_item.dart';
 import '../services/settings_service.dart';
+import 'package:open_filex/open_filex.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -35,10 +37,145 @@ class DashboardScreenState extends State<DashboardScreen> {
   String? _profilePhotoUrl;
   String? _profilePhotoPath;
 
+  final TextEditingController _searchController = TextEditingController();
+  List<PasswordItem> _allPasswords = [];
+  List<DocumentItem> _allDocuments = [];
+  List<PasswordItem> _filteredPasswords = [];
+  List<DocumentItem> _filteredDocuments = [];
+  String _selectedCategoryFilter = 'All';
+
+  List<PasswordItem> get _displayedPasswords {
+    if (_selectedCategoryFilter == 'All') {
+      return _recentPasswords;
+    }
+    return _allPasswords
+        .where((p) => p.category.toLowerCase() == _selectedCategoryFilter.toLowerCase())
+        .toList();
+  }
+
+  String get _sectionHeaderTitle {
+    if (_selectedCategoryFilter == 'All') {
+      return 'Recent Activity';
+    }
+    return '$_selectedCategoryFilter Passwords';
+  }
+
+  void _showFilterBottomSheet() {
+    final categories = ['All', 'General', 'Social', 'Finance', 'Work', 'Personal'];
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setBottomSheetState) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Filter by Category',
+                      style: GoogleFonts.poppins(
+                        color: AppColors.textPrimary,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: categories.map((cat) {
+                        final isSelected = _selectedCategoryFilter == cat;
+                        return ChoiceChip(
+                          label: Text(
+                            cat,
+                            style: GoogleFonts.poppins(
+                              color: isSelected ? Colors.white : AppColors.textSecondary,
+                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                            ),
+                          ),
+                          selected: isSelected,
+                          selectedColor: AppColors.primary,
+                          backgroundColor: AppColors.surface,
+                          side: BorderSide(
+                            color: isSelected ? AppColors.primary : AppColors.border,
+                            width: 1,
+                          ),
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() {
+                                _selectedCategoryFilter = cat;
+                                _onSearchChanged();
+                              });
+                              setBottomSheetState(() {});
+                              Navigator.pop(context);
+                            }
+                          },
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   void initState() {
     super.initState();
+    _searchController.addListener(_onSearchChanged);
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    final query = _searchController.text.trim().toLowerCase();
+    setState(() {
+      Iterable<PasswordItem> tempPasswords = _allPasswords;
+      if (_selectedCategoryFilter != 'All') {
+        tempPasswords = tempPasswords.where((p) => p.category.toLowerCase() == _selectedCategoryFilter.toLowerCase());
+      }
+
+      if (query.isEmpty) {
+        _filteredPasswords = [];
+        _filteredDocuments = [];
+      } else {
+        _filteredPasswords = tempPasswords.where((p) {
+          return p.title.toLowerCase().contains(query) ||
+              p.username.toLowerCase().contains(query) ||
+              p.url.toLowerCase().contains(query) ||
+              p.notes.toLowerCase().contains(query) ||
+              p.category.toLowerCase().contains(query);
+        }).toList();
+
+        _filteredDocuments = _allDocuments.where((d) {
+          return d.name.toLowerCase().contains(query) ||
+              d.fileType.toLowerCase().contains(query);
+        }).toList();
+      }
+    });
+  }
+
+  String _formatFileSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
   Future<void> _loadData() async {
@@ -51,11 +188,14 @@ class DashboardScreenState extends State<DashboardScreen> {
       _passwordCount = passwords.length;
       _documentCount = documents.length;
       _recentPasswords = passwords.take(3).toList();
+      _allPasswords = passwords;
+      _allDocuments = documents;
       _profileName = settings['profile_name'] as String? ?? 'John Doe';
       _profileEmail = settings['profile_email'] as String? ?? 'john@example.com';
       _profilePhotoUrl = settings['profile_photo_url'] as String? ?? settings['gdrive_photo'] as String?;
       _profilePhotoPath = settings['profile_photo_path'] as String?;
       _isLoading = false;
+      _onSearchChanged();
     });
   }
 
@@ -322,25 +462,13 @@ class DashboardScreenState extends State<DashboardScreen> {
                       Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Good Morning,',
-                                    style: GoogleFonts.poppins(
-                                      color: AppColors.textSecondary,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                  Text(
-                                    '$_profileName 👋',
-                                    style: GoogleFonts.poppins(
-                                      color: AppColors.textPrimary,
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ],
+                              Text(
+                                'Dashboard',
+                                style: GoogleFonts.poppins(
+                                  color: AppColors.textPrimary,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                                GestureDetector(
                                  onTap: _showEditProfileDialog,
@@ -371,147 +499,264 @@ class DashboardScreenState extends State<DashboardScreen> {
                           .slideY(begin: -0.2, end: 0),
                       const SizedBox(height: 20),
                       // Search bar
-                      Container(
-                        decoration: BoxDecoration(
-                          color: AppColors.surface,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: AppColors.border.withValues(alpha: 0.5),
-                            width: 1,
-                          ),
+                      TextField(
+                        controller: _searchController,
+                        style: GoogleFonts.poppins(
+                          color: AppColors.textPrimary,
+                          fontSize: 14,
                         ),
-                        child: TextField(
-                          style: GoogleFonts.poppins(
-                            color: AppColors.textPrimary,
-                            fontSize: 14,
+                        decoration: InputDecoration(
+                          hintText: 'Search passwords, documents...',
+                          prefixIcon: const Icon(
+                            Icons.search_rounded,
+                            color: AppColors.textSecondary,
+                            size: 22,
                           ),
-                          decoration: InputDecoration(
-                            hintText: 'Search passwords, documents...',
-                            hintStyle: GoogleFonts.poppins(
-                              color: AppColors.textHint,
-                              fontSize: 14,
-                            ),
-                            prefixIcon: const Icon(
-                              Icons.search_rounded,
-                              color: AppColors.textSecondary,
-                              size: 22,
-                            ),
-                            suffixIcon: Container(
-                              margin: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: AppColors.primary.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(10),
+                          suffixIcon: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (_searchController.text.isNotEmpty)
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.close_rounded,
+                                    color: AppColors.textSecondary,
+                                    size: 20,
+                                  ),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                  },
+                                ),
+                              GestureDetector(
+                                onTap: _showFilterBottomSheet,
+                                child: Container(
+                                  margin: const EdgeInsets.only(right: 8, left: 4),
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: _selectedCategoryFilter == 'All'
+                                        ? AppColors.primary.withValues(alpha: 0.15)
+                                        : AppColors.primary,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Icon(
+                                    Icons.tune_rounded,
+                                    color: _selectedCategoryFilter == 'All'
+                                        ? AppColors.primary
+                                        : Colors.white,
+                                    size: 18,
+                                  ),
+                                ),
                               ),
-                              child: const Icon(
-                                Icons.tune_rounded,
-                                color: AppColors.primary,
-                                size: 18,
-                              ),
-                            ),
-                            border: InputBorder.none,
-                            enabledBorder: InputBorder.none,
-                            focusedBorder: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 14,
-                            ),
+                            ],
                           ),
                         ),
                       )
                           .animate()
                           .fadeIn(delay: 150.ms)
                           .slideY(begin: 0.1, end: 0),
-                      const SizedBox(height: 24),
-                      // Stats grid
-                      GridView.count(
-                            crossAxisCount: 2,
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 12,
-                            childAspectRatio: 1.4,
-                            children: [
-                              GestureDetector(
-                                onTap: () async {
-                                  await Navigator.pushNamed(context, '/passwords');
-                                  _loadData();
-                                },
-                                child: StatCard(
-                                  value: _passwordCount.toString(),
-                                  label: 'Passwords',
-                                  icon: Icons.key_rounded,
-                                  color: AppColors.primary,
-                                ),
-                              ),
-                              GestureDetector(
-                                onTap: () async {
-                                  await Navigator.pushNamed(context, '/documents');
-                                  _loadData();
-                                },
-                                child: StatCard(
-                                  value: _documentCount.toString(),
-                                  label: 'Documents',
-                                  icon: Icons.folder_rounded,
-                                  color: AppColors.accent,
-                                ),
-                              ),
-                            ],
-                          )
-                          .animate()
-                          .fadeIn(delay: 400.ms)
-                          .slideY(begin: 0.1, end: 0),
-                      const SizedBox(height: 24),
-                      // Recent activity
-                      SectionHeader(
-                        title: 'Recent Activity',
-                        action: 'View all',
-                        onAction: () async {
-                          await Navigator.pushNamed(context, '/passwords');
-                          _loadData();
-                        },
-                      ),
-                      const SizedBox(height: 14),
-                      if (_recentPasswords.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 20),
-                          child: Center(
-                            child: Text(
-                              'No recent activity',
-                              style: GoogleFonts.poppins(
-                                color: AppColors.textSecondary,
-                                fontSize: 14,
+                      if (_searchController.text.trim().isNotEmpty) ...[
+                        const SizedBox(height: 24),
+                        if (_filteredPasswords.isEmpty && _filteredDocuments.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 40),
+                            child: Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.search_off_rounded,
+                                    size: 48,
+                                    color: AppColors.textSecondary.withValues(alpha: 0.5),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'No results found for "${_searchController.text}"',
+                                    style: GoogleFonts.poppins(
+                                      color: AppColors.textSecondary,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
                               ),
                             ),
-                          ),
-                        )
-                      else
-                        ..._recentPasswords.asMap().entries.map(
-                          (e) {
-                            final password = e.value;
-                            return PasswordListTile(
-                                  title: password.title.isNotEmpty ? password.title : 'Unnamed',
-                                  username: password.username.isNotEmpty ? password.username : 'No username',
-                                  initial: password.title.isNotEmpty ? password.title[0].toUpperCase() : '?',
-                                  color: AppColors.primary, // Using primary color for all for now
-                                  onTap: () async {
-                                    await Navigator.pushNamed(
-                                      context,
-                                      '/view-password',
-                                      arguments: password,
+                          )
+                        else ...[
+                          if (_filteredPasswords.isNotEmpty) ...[
+                            SectionHeader(
+                              title: 'Passwords',
+                              action: '${_filteredPasswords.length} found',
+                              onAction: () {},
+                            ),
+                            const SizedBox(height: 12),
+                            ..._filteredPasswords.asMap().entries.map((e) {
+                              final password = e.value;
+                              return PasswordListTile(
+                                title: password.title.isNotEmpty ? password.title : 'Unnamed',
+                                username: password.username.isNotEmpty ? password.username : 'No username',
+                                initial: password.title.isNotEmpty ? password.title[0].toUpperCase() : '?',
+                                color: AppColors.primary,
+                                onTap: () async {
+                                  await Navigator.pushNamed(
+                                    context,
+                                    '/view-password',
+                                    arguments: password,
+                                  );
+                                  _loadData();
+                                },
+                              );
+                            }),
+                            const SizedBox(height: 24),
+                          ],
+                          if (_filteredDocuments.isNotEmpty) ...[
+                            SectionHeader(
+                              title: 'Documents',
+                              action: '${_filteredDocuments.length} found',
+                              onAction: () {},
+                            ),
+                            const SizedBox(height: 12),
+                            ..._filteredDocuments.asMap().entries.map((e) {
+                              final doc = e.value;
+                              return DocumentTile(
+                                name: doc.name,
+                                size: _formatFileSize(doc.sizeBytes),
+                                type: doc.fileType,
+                                onTap: () async {
+                                  if (doc.filePath.isEmpty) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Invalid file path', style: GoogleFonts.poppins()),
+                                        backgroundColor: AppColors.error,
+                                      ),
                                     );
+                                    return;
+                                  }
+                                  final file = File(doc.filePath);
+                                  if (await file.exists()) {
+                                    try {
+                                      await OpenFilex.open(doc.filePath);
+                                    } catch (err) {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text('Could not open file: $err', style: GoogleFonts.poppins()),
+                                            backgroundColor: AppColors.error,
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  } else {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('File does not exist or was deleted', style: GoogleFonts.poppins()),
+                                          backgroundColor: AppColors.error,
+                                        ),
+                                      );
+                                    }
+                                  }
+                                },
+                              );
+                            }),
+                            const SizedBox(height: 24),
+                          ],
+                        ],
+                        const SizedBox(height: 100),
+                      ] else ...[
+                        const SizedBox(height: 24),
+                        // Stats grid
+                        GridView.count(
+                              crossAxisCount: 2,
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              crossAxisSpacing: 12,
+                              mainAxisSpacing: 12,
+                              childAspectRatio: 1.4,
+                              children: [
+                                GestureDetector(
+                                  onTap: () async {
+                                    await Navigator.pushNamed(context, '/passwords');
                                     _loadData();
                                   },
-                                )
-                                .animate()
-                                .fadeIn(
-                                  delay: Duration(
-                                    milliseconds: 600 + e.key * 100,
+                                  child: StatCard(
+                                    value: _passwordCount.toString(),
+                                    label: 'Passwords',
+                                    icon: Icons.key_rounded,
+                                    color: AppColors.primary,
                                   ),
-                                )
-                                .slideX(begin: 0.1, end: 0);
-                          }
+                                ),
+                                GestureDetector(
+                                  onTap: () async {
+                                    await Navigator.pushNamed(context, '/documents');
+                                    _loadData();
+                                  },
+                                  child: StatCard(
+                                    value: _documentCount.toString(),
+                                    label: 'Documents',
+                                    icon: Icons.folder_rounded,
+                                    color: AppColors.accent,
+                                  ),
+                                ),
+                              ],
+                            )
+                            .animate()
+                            .fadeIn(delay: 400.ms)
+                            .slideY(begin: 0.1, end: 0),
+                        const SizedBox(height: 24),
+                        // Recent activity / Category filtered list
+                        SectionHeader(
+                          title: _sectionHeaderTitle,
+                          action: 'View all',
+                          onAction: () async {
+                            await Navigator.pushNamed(context, '/passwords');
+                            _loadData();
+                          },
                         ),
-                      const SizedBox(height: 100),
+                        const SizedBox(height: 14),
+                        if (_displayedPasswords.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 20),
+                            child: Center(
+                              child: Text(
+                                _selectedCategoryFilter == 'All'
+                                    ? 'No recent activity'
+                                    : 'No passwords in "$_selectedCategoryFilter"',
+                                style: GoogleFonts.poppins(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          )
+                        else
+                          ..._displayedPasswords.asMap().entries.map(
+                            (e) {
+                              final password = e.value;
+                              return PasswordListTile(
+                                    title: password.title.isNotEmpty ? password.title : 'Unnamed',
+                                    username: password.username.isNotEmpty ? password.username : 'No username',
+                                    initial: password.title.isNotEmpty ? password.title[0].toUpperCase() : '?',
+                                    color: AppColors.primary,
+                                    onTap: () async {
+                                      await Navigator.pushNamed(
+                                        context,
+                                        '/view-password',
+                                        arguments: password,
+                                      );
+                                      _loadData();
+                                    },
+                                  )
+                                  .animate()
+                                  .fadeIn(
+                                    delay: Duration(
+                                      milliseconds: 300 + e.key * 80,
+                                    ),
+                                  )
+                                  .slideX(begin: 0.1, end: 0);
+                            }
+                          ),
+                        const SizedBox(height: 100),
+                      ]
                     ],
                   ),
                 ),
