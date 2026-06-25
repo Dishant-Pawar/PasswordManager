@@ -237,9 +237,8 @@ class SettingsScreenState extends State<SettingsScreen> {
                               iconColor: AppColors.success,
                               trailing: Switch(
                                 value: _autoBackup,
-                                onChanged: (v) async {
-                                  setState(() => _autoBackup = v);
-                                  await SettingsService.instance.saveSetting('auto_backup_enabled', v);
+                                onChanged: (v) {
+                                  _toggleAutoBackup(v);
                                 },
                                 activeThumbColor: AppColors.primary,
                               ),
@@ -426,6 +425,114 @@ class SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  void _toggleAutoBackup(bool enable) {
+    if (!enable) {
+      setState(() {
+        _autoBackup = false;
+      });
+      SettingsService.instance.saveSetting('auto_backup_enabled', false);
+      return;
+    }
+
+    final controller = TextEditingController(text: _autoBackupPassphrase);
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Enable Auto Backup',
+          style: GoogleFonts.poppins(
+            color: AppColors.textPrimary,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Specify a passphrase to encrypt your automatic cloud backups. This passphrase is required to enable auto backup.',
+              style: GoogleFonts.poppins(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(height: 16),
+            SVaultTextField(
+              label: 'Passphrase',
+              hint: 'Enter passphrase',
+              isPassword: true,
+              controller: controller,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              setState(() {
+                _autoBackup = false;
+              });
+            },
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.poppins(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              final newPassphrase = controller.text.trim();
+              if (newPassphrase.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Passphrase cannot be empty.',
+                      style: GoogleFonts.poppins(),
+                    ),
+                    backgroundColor: AppColors.error,
+                  ),
+                );
+                return;
+              }
+              
+              setState(() {
+                _autoBackup = true;
+                _autoBackupPassphrase = newPassphrase;
+              });
+              await SettingsService.instance.saveSetting('auto_backup_enabled', true);
+              await SettingsService.instance.saveSetting('auto_backup_passphrase', newPassphrase);
+              if (ctx.mounted) Navigator.pop(ctx);
+              
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Auto backup enabled with custom passphrase.',
+                    style: GoogleFonts.poppins(),
+                  ),
+                  backgroundColor: AppColors.success,
+                ),
+              );
+            },
+            child: Text(
+              'Enable',
+              style: GoogleFonts.poppins(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ).then((_) => controller.dispose());
+  }
+
   void _showPassphraseDialog() {
     final controller = TextEditingController(text: _autoBackupPassphrase);
     showDialog(
@@ -446,7 +553,7 @@ class SettingsScreenState extends State<SettingsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Specify a custom passphrase to encrypt automatic cloud backups. If left empty, the system default secure key is used.',
+              'Specify a custom passphrase to encrypt automatic cloud backups.',
               style: GoogleFonts.poppins(
                 color: AppColors.textSecondary,
                 fontSize: 13,
@@ -464,7 +571,6 @@ class SettingsScreenState extends State<SettingsScreen> {
         actions: [
           TextButton(
             onPressed: () {
-              controller.dispose();
               Navigator.pop(ctx);
             },
             child: Text(
@@ -477,14 +583,25 @@ class SettingsScreenState extends State<SettingsScreen> {
           ),
           TextButton(
             onPressed: () async {
-              final newPassphrase = controller.text;
+              final newPassphrase = controller.text.trim();
+              if (newPassphrase.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Passphrase cannot be empty.',
+                      style: GoogleFonts.poppins(),
+                    ),
+                    backgroundColor: AppColors.error,
+                  ),
+                );
+                return;
+              }
               final messenger = ScaffoldMessenger.of(context);
               final navigator = Navigator.of(ctx);
               setState(() {
                 _autoBackupPassphrase = newPassphrase;
               });
               await SettingsService.instance.saveSetting('auto_backup_passphrase', newPassphrase);
-              controller.dispose();
               navigator.pop();
               messenger.showSnackBar(
                 SnackBar(
@@ -506,7 +623,7 @@ class SettingsScreenState extends State<SettingsScreen> {
           ),
         ],
       ),
-    );
+    ).then((_) => controller.dispose());
   }
 
   void _showUpdateHintDialog() {
@@ -546,7 +663,6 @@ class SettingsScreenState extends State<SettingsScreen> {
         actions: [
           TextButton(
             onPressed: () {
-              controller.dispose();
               Navigator.pop(ctx);
             },
             child: Text(
@@ -566,7 +682,6 @@ class SettingsScreenState extends State<SettingsScreen> {
                 _passwordHint = newHint;
               });
               await SettingsService.instance.saveSetting('password_hint', newHint.isEmpty ? null : newHint);
-              controller.dispose();
               navigator.pop();
               messenger.showSnackBar(
                 SnackBar(
@@ -588,7 +703,7 @@ class SettingsScreenState extends State<SettingsScreen> {
           ),
         ],
       ),
-    );
+    ).then((_) => controller.dispose());
   }
 
   Future<String?> _copyPickedFile(String originalPath) async {

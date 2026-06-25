@@ -49,6 +49,7 @@ class BackupScreenState extends State<BackupScreen> {
 
   // Automatic Backup State
   bool _autoBackupEnabled = false;
+  String _autoBackupPassphrase = '';
 
   // Backup History list
   List<drive.File> _backupHistory = [];
@@ -93,6 +94,7 @@ class BackupScreenState extends State<BackupScreen> {
     final gphoto = await SettingsService.instance.getGooglePhoto();
     final settings = await SettingsService.instance.loadSettings();
     final autoBackup = settings['auto_backup_enabled'] as bool? ?? false;
+    final autoBackupPassphrase = settings['auto_backup_passphrase'] as String? ?? '';
     
     // Detect available drives
     final drives = await _detectDrives();
@@ -121,6 +123,7 @@ class BackupScreenState extends State<BackupScreen> {
       _gdrivePath = gpath;
       _gdrivePhoto = gphoto;
       _autoBackupEnabled = autoBackup;
+      _autoBackupPassphrase = autoBackupPassphrase;
       _availableDrives = drives;
       _gdriveCloudSyncConnected = isCloudConnected;
       _loading = false;
@@ -329,6 +332,114 @@ class BackupScreenState extends State<BackupScreen> {
       _backupHistory = [];
     });
     _loadBackupSettings();
+  }
+
+  void _toggleAutoBackup(bool enable) {
+    if (!enable) {
+      setState(() {
+        _autoBackupEnabled = false;
+      });
+      SettingsService.instance.saveSetting('auto_backup_enabled', false);
+      return;
+    }
+
+    final controller = TextEditingController(text: _autoBackupPassphrase);
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Enable Auto Backup',
+          style: GoogleFonts.poppins(
+            color: AppColors.textPrimary,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Specify a passphrase to encrypt your automatic cloud backups. This passphrase is required to enable auto backup.',
+              style: GoogleFonts.poppins(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(height: 16),
+            SVaultTextField(
+              label: 'Passphrase',
+              hint: 'Enter passphrase',
+              isPassword: true,
+              controller: controller,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              setState(() {
+                _autoBackupEnabled = false;
+              });
+            },
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.poppins(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              final newPassphrase = controller.text.trim();
+              if (newPassphrase.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Passphrase cannot be empty.',
+                      style: GoogleFonts.poppins(),
+                    ),
+                    backgroundColor: AppColors.error,
+                  ),
+                );
+                return;
+              }
+              
+              setState(() {
+                _autoBackupEnabled = true;
+                _autoBackupPassphrase = newPassphrase;
+              });
+              await SettingsService.instance.saveSetting('auto_backup_enabled', true);
+              await SettingsService.instance.saveSetting('auto_backup_passphrase', newPassphrase);
+              if (ctx.mounted) Navigator.pop(ctx);
+              
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Auto backup enabled with custom passphrase.',
+                    style: GoogleFonts.poppins(),
+                  ),
+                  backgroundColor: AppColors.success,
+                ),
+              );
+            },
+            child: Text(
+              'Enable',
+              style: GoogleFonts.poppins(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ).then((_) => controller.dispose());
   }
 
   void _showBackupPassphraseDialog() {
@@ -1002,8 +1113,7 @@ class BackupScreenState extends State<BackupScreen> {
               Switch(
                 value: _autoBackupEnabled,
                 onChanged: (v) {
-                  setState(() => _autoBackupEnabled = v);
-                  SettingsService.instance.saveSetting('auto_backup_enabled', v);
+                  _toggleAutoBackup(v);
                 },
                 activeThumbColor: AppColors.primary,
               ),
