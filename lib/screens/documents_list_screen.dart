@@ -359,7 +359,12 @@ class DocumentsListScreenState extends State<DocumentsListScreen> {
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                padding: EdgeInsets.fromLTRB(
+                  Navigator.canPop(context) ? 10 : 20,
+                  20,
+                  20,
+                  0,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -404,8 +409,18 @@ class DocumentsListScreenState extends State<DocumentsListScreen> {
                             ],
                           ).animate().fadeIn(duration: 300.ms)
                         : Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
+                              if (Navigator.canPop(context)) ...[
+                                IconButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  icon: const Icon(
+                                    Icons.arrow_back_ios_rounded,
+                                    color: AppColors.textPrimary,
+                                    size: 20,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                              ],
                               Text(
                                 'Documents',
                                 style: GoogleFonts.poppins(
@@ -414,6 +429,7 @@ class DocumentsListScreenState extends State<DocumentsListScreen> {
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
+                              const Spacer(),
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 12,
@@ -558,6 +574,19 @@ class DocumentsListScreenState extends State<DocumentsListScreen> {
           ),
         ),
       ),
+      floatingActionButton: Navigator.canPop(context)
+          ? FloatingActionButton(
+              onPressed: () async {
+                await Navigator.pushNamed(context, '/upload-document');
+                _loadDocuments();
+              },
+              backgroundColor: AppColors.accent,
+              elevation: 4,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
+            )
+          : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );
   }
 }

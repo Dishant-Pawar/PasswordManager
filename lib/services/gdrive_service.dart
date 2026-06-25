@@ -232,6 +232,24 @@ class GDriveService {
     return 'backup_${dayName}_$year-$month-${day}_$hour-$minute-$second';
   }
 
+  // Generate the new customized backup file names:
+  // e.g. Pass-B monday_25/06/26_.pwm (for drive) or Pass-B monday_25-06-26_.pwm (for local)
+  static String generateBackupFileName({required bool isPassword, required bool isLocal}) {
+    final now = DateTime.now();
+    final dayNames = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    final dayName = dayNames[now.weekday - 1];
+    
+    final yearShort = now.year.toString().substring(2);
+    final month = now.month.toString().padLeft(2, '0');
+    final day = now.day.toString().padLeft(2, '0');
+    
+    final typePrefix = isPassword ? 'Pass-B' : 'Doc-B';
+    final dateStr = isLocal ? '$day-$month-$yearShort' : '$day/$month/$yearShort';
+    final extension = isPassword ? '.pwm' : '.sdm';
+    
+    return '$typePrefix ${dayName}_${dateStr}_$extension';
+  }
+
   // Prune old backups, keeping only the last 2 backup sets (pairs of pwm/sdm) on Google Drive
   Future<void> pruneOldBackups({String folderName = "Application Backups"}) async {
     await currentUser;
@@ -260,6 +278,10 @@ class GDriveService {
           prefix = name.substring(0, name.length - '_vault.pwm'.length);
         } else if (name.endsWith('_documents.sdm')) {
           prefix = name.substring(0, name.length - '_documents.sdm'.length);
+        } else if (name.startsWith('Pass-B ') && name.endsWith('.pwm')) {
+          prefix = name.substring('Pass-B '.length, name.length - '.pwm'.length);
+        } else if (name.startsWith('Doc-B ') && name.endsWith('.sdm')) {
+          prefix = name.substring('Doc-B '.length, name.length - '.sdm'.length);
         }
 
         if (prefix != null) {

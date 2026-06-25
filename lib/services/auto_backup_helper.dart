@@ -65,7 +65,6 @@ class AutoBackupHelper {
         return;
       }
 
-      final folderName = GDriveService.generateBackupPrefix();
       final tempDir = await getTemporaryDirectory();
 
       if (backupPasswords) {
@@ -90,9 +89,10 @@ class AutoBackupHelper {
         final pwTemp = File(join(tempDir.path, 'vault_backup.pwm'));
         await pwTemp.writeAsBytes(pwBytes);
 
+        final pwFileName = GDriveService.generateBackupFileName(isPassword: true, isLocal: false);
         await GDriveService.instance.uploadBackupFile(
           localFilePath: pwTemp.path,
-          driveFileName: '${folderName}_vault.pwm',
+          driveFileName: pwFileName,
           folderName: 'Application Backups',
         );
 
@@ -138,9 +138,10 @@ class AutoBackupHelper {
         final docTemp = File(join(tempDir.path, 'documents_backup.sdm'));
         await docTemp.writeAsBytes(docBytes);
 
+        final docFileName = GDriveService.generateBackupFileName(isPassword: false, isLocal: false);
         await GDriveService.instance.uploadBackupFile(
           localFilePath: docTemp.path,
-          driveFileName: '${folderName}_documents.sdm',
+          driveFileName: docFileName,
           folderName: 'Application Backups',
         );
 

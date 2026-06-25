@@ -554,15 +554,18 @@ class BackupScreenState extends State<BackupScreen> {
         await docTemp.writeAsBytes(docBytes);
 
         // Upload to real Drive
+        final pwFileName = GDriveService.generateBackupFileName(isPassword: true, isLocal: false);
+        final docFileName = GDriveService.generateBackupFileName(isPassword: false, isLocal: false);
+
         await GDriveService.instance.uploadBackupFile(
           localFilePath: pwTemp.path,
-          driveFileName: '${folderName}_vault.pwm',
+          driveFileName: pwFileName,
           folderName: 'Application Backups',
         );
 
         await GDriveService.instance.uploadBackupFile(
           localFilePath: docTemp.path,
-          driveFileName: '${folderName}_documents.sdm',
+          driveFileName: docFileName,
           folderName: 'Application Backups',
         );
 
@@ -576,7 +579,7 @@ class BackupScreenState extends State<BackupScreen> {
         await GDriveService.instance.pruneOldBackups();
 
         setState(() => _isBackingUp = false);
-        _showSuccessDialog('Google Drive Cloud (Application Backups/$folderName)');
+        _showSuccessDialog('Google Drive Cloud (Application Backups)');
         _fetchGDriveMetadata();
       } else {
         // Local path write (standard disk or google sync folder)
@@ -597,10 +600,13 @@ class BackupScreenState extends State<BackupScreen> {
         }
 
         // Save files
-        final pwFile = File(p.join(backupDir.path, 'vault_backup.pwm'));
+        final pwFileNameLocal = GDriveService.generateBackupFileName(isPassword: true, isLocal: true);
+        final docFileNameLocal = GDriveService.generateBackupFileName(isPassword: false, isLocal: true);
+
+        final pwFile = File(p.join(backupDir.path, pwFileNameLocal));
         await pwFile.writeAsBytes(pwBytes);
 
-        final docFile = File(p.join(backupDir.path, 'documents_backup.sdm'));
+        final docFile = File(p.join(backupDir.path, docFileNameLocal));
         await docFile.writeAsBytes(docBytes);
 
         // Prune old local backups
