@@ -81,7 +81,7 @@ class _CreateMasterPasswordScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.bgGradient),
+        decoration: BoxDecoration(gradient: AppColors.bgGradient),
         child: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -91,7 +91,7 @@ class _CreateMasterPasswordScreenState
                 const SizedBox(height: 24),
                 IconButton(
                   onPressed: () => Navigator.pop(context),
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.arrow_back_ios_rounded,
                     color: AppColors.textPrimary,
                   ),
@@ -168,7 +168,7 @@ class _CreateMasterPasswordScreenState
                           color: AppColors.warning.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.warning_amber_rounded,
                           color: AppColors.warning,
                           size: 22,

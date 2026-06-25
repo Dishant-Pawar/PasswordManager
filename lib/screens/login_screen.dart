@@ -285,7 +285,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.bgGradient),
+        decoration: BoxDecoration(gradient: AppColors.bgGradient),
         child: SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -364,7 +364,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ? Container(
                         height: 56,
                         alignment: Alignment.center,
-                        child: const CircularProgressIndicator(
+                        child: CircularProgressIndicator(
                           valueColor: AlwaysStoppedAnimation(AppColors.primary),
                         ),
                       )
@@ -381,7 +381,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   // Divider
                   Row(
                     children: [
-                      const Expanded(child: Divider(color: AppColors.border)),
+                      Expanded(child: Divider(color: AppColors.border)),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: Text(
@@ -392,7 +392,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                       ),
-                      const Expanded(child: Divider(color: AppColors.border)),
+                      Expanded(child: Divider(color: AppColors.border)),
                     ],
                   ).animate().fadeIn(delay: 600.ms),
                   const SizedBox(height: 24),
@@ -414,7 +414,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ],
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.fingerprint_rounded,
                             color: AppColors.primary,
                             size: 38,
@@ -500,7 +500,7 @@ class _VaultResetDialogState extends State<_VaultResetDialog> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       title: Row(
         children: [
-          const Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 24),
+          Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 24),
           const SizedBox(width: 8),
           Text(
             'Reset Vault?',

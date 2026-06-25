@@ -38,7 +38,7 @@ class _PasswordListScreenState extends State<PasswordListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.bgGradient),
+        decoration: BoxDecoration(gradient: AppColors.bgGradient),
         child: SafeArea(
           child: Column(
             children: [
@@ -51,7 +51,7 @@ class _PasswordListScreenState extends State<PasswordListScreen> {
                       children: [
                         IconButton(
                           onPressed: () => Navigator.pop(context),
-                          icon: const Icon(
+                          icon: Icon(
                             Icons.arrow_back_ios_rounded,
                             color: AppColors.textPrimary,
                             size: 20,
@@ -96,7 +96,7 @@ class _PasswordListScreenState extends State<PasswordListScreen> {
                       ),
                       decoration: InputDecoration(
                         hintText: 'Search passwords...',
-                        prefixIcon: const Icon(
+                        prefixIcon: Icon(
                           Icons.search_rounded,
                           color: AppColors.textSecondary,
                           size: 20,
@@ -113,7 +113,7 @@ class _PasswordListScreenState extends State<PasswordListScreen> {
               ),
               Expanded(
                 child: _isLoading 
-                  ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+                  ? Center(child: CircularProgressIndicator(color: AppColors.primary))
                   : _passwords.isEmpty
                     ? Center(
                         child: Text(

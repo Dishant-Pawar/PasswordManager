@@ -128,7 +128,7 @@ class _UploadDocumentScreenState extends State<UploadDocumentScreen> {
         builder: (ctx) => AlertDialog(
           backgroundColor: AppColors.surface,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Icon(
+          title: Icon(
             Icons.check_circle_rounded,
             color: AppColors.success,
             size: 48,
@@ -189,7 +189,7 @@ class _UploadDocumentScreenState extends State<UploadDocumentScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.bgGradient),
+        decoration: BoxDecoration(gradient: AppColors.bgGradient),
         child: SafeArea(
           child: Column(
             children: [
@@ -199,7 +199,7 @@ class _UploadDocumentScreenState extends State<UploadDocumentScreen> {
                   children: [
                     IconButton(
                       onPressed: () => Navigator.pop(context),
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.arrow_back_ios_rounded,
                         color: AppColors.textPrimary,
                       ),
@@ -334,7 +334,7 @@ class _UploadDocumentScreenState extends State<UploadDocumentScreen> {
                               ),
                             ),
                             dropdownColor: AppColors.surface,
-                            icon: const Icon(
+                            icon: Icon(
                               Icons.keyboard_arrow_down_rounded,
                               color: AppColors.textSecondary,
                             ),
@@ -360,7 +360,7 @@ class _UploadDocumentScreenState extends State<UploadDocumentScreen> {
                       if (_uploading)
                         Column(
                           children: [
-                            const LinearProgressIndicator(
+                            LinearProgressIndicator(
                               valueColor: AlwaysStoppedAnimation(
                                 AppColors.primary,
                               ),

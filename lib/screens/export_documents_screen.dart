@@ -211,7 +211,7 @@ class _ExportDocumentsScreenState extends State<ExportDocumentsScreen> {
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Icon(
+        title: Icon(
           Icons.check_circle_rounded,
           color: AppColors.success,
           size: 48,
@@ -259,7 +259,7 @@ class _ExportDocumentsScreenState extends State<ExportDocumentsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.bgGradient),
+        decoration: BoxDecoration(gradient: AppColors.bgGradient),
         child: SafeArea(
           child: Column(
             children: [
@@ -269,7 +269,7 @@ class _ExportDocumentsScreenState extends State<ExportDocumentsScreen> {
                   children: [
                     IconButton(
                       onPressed: () => Navigator.pop(context),
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.arrow_back_ios_rounded,
                         color: AppColors.textPrimary,
                       ),
@@ -349,7 +349,7 @@ class _ExportDocumentsScreenState extends State<ExportDocumentsScreen> {
                                 ),
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.info_outline_rounded,
                                 color: AppColors.primary,
                                 size: 20,
@@ -417,7 +417,7 @@ class _ExportDocumentsScreenState extends State<ExportDocumentsScreen> {
                                 style: GoogleFonts.poppins(color: AppColors.textSecondary, fontSize: 11),
                               ),
                             ),
-                            const Divider(color: AppColors.border, height: 1),
+                            Divider(color: AppColors.border, height: 1),
                             RadioListTile<bool>(
                               value: true,
                               groupValue: _exportToGDrive,
@@ -473,7 +473,7 @@ class _ExportDocumentsScreenState extends State<ExportDocumentsScreen> {
                       _exporting
                           ? Column(
                               children: [
-                                const CircularProgressIndicator(
+                                CircularProgressIndicator(
                                   valueColor: AlwaysStoppedAnimation(
                                     AppColors.primary,
                                   ),

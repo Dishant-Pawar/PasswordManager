@@ -354,7 +354,7 @@ class DocumentsListScreenState extends State<DocumentsListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.bgGradient),
+        decoration: BoxDecoration(gradient: AppColors.bgGradient),
         child: SafeArea(
           child: Column(
             children: [
@@ -375,7 +375,7 @@ class DocumentsListScreenState extends State<DocumentsListScreen> {
                               Row(
                                 children: [
                                   IconButton(
-                                    icon: const Icon(Icons.close_rounded, color: AppColors.textPrimary),
+                                    icon: Icon(Icons.close_rounded, color: AppColors.textPrimary),
                                     onPressed: () {
                                       setState(() {
                                         _isSelectionMode = false;
@@ -397,11 +397,11 @@ class DocumentsListScreenState extends State<DocumentsListScreen> {
                               Row(
                                 children: [
                                   IconButton(
-                                    icon: const Icon(Icons.share_rounded, color: AppColors.accent),
+                                    icon: Icon(Icons.share_rounded, color: AppColors.accent),
                                     onPressed: _selectedIds.isEmpty ? null : _shareSelectedDocuments,
                                   ),
                                   IconButton(
-                                    icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error),
+                                    icon: Icon(Icons.delete_outline_rounded, color: AppColors.error),
                                     onPressed: _selectedIds.isEmpty ? null : _deleteSelectedDocuments,
                                   ),
                                 ],
@@ -413,7 +413,7 @@ class DocumentsListScreenState extends State<DocumentsListScreen> {
                               if (Navigator.canPop(context)) ...[
                                 IconButton(
                                   onPressed: () => Navigator.pop(context),
-                                  icon: const Icon(
+                                  icon: Icon(
                                     Icons.arrow_back_ios_rounded,
                                     color: AppColors.textPrimary,
                                     size: 20,
@@ -459,7 +459,7 @@ class DocumentsListScreenState extends State<DocumentsListScreen> {
                         color: AppColors.textPrimary,
                         fontSize: 14,
                       ),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         hintText: 'Search documents...',
                         prefixIcon: Icon(
                           Icons.search_rounded,
@@ -474,7 +474,7 @@ class DocumentsListScreenState extends State<DocumentsListScreen> {
               ),
               Expanded(
                 child: _isLoading
-                    ? const Center(child: CircularProgressIndicator(color: AppColors.accent))
+                    ? Center(child: CircularProgressIndicator(color: AppColors.accent))
                     : _filteredDocuments.isEmpty
                         ? Center(
                             child: Text(

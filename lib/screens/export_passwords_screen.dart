@@ -195,7 +195,7 @@ class _ExportPasswordsScreenState extends State<ExportPasswordsScreen> {
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Icon(
+        title: Icon(
           Icons.check_circle_rounded,
           color: AppColors.success,
           size: 48,
@@ -243,7 +243,7 @@ class _ExportPasswordsScreenState extends State<ExportPasswordsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.bgGradient),
+        decoration: BoxDecoration(gradient: AppColors.bgGradient),
         child: SafeArea(
           child: Column(
             children: [
@@ -253,7 +253,7 @@ class _ExportPasswordsScreenState extends State<ExportPasswordsScreen> {
                   children: [
                     IconButton(
                       onPressed: () => Navigator.pop(context),
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.arrow_back_ios_rounded,
                         color: AppColors.textPrimary,
                       ),
@@ -378,7 +378,7 @@ class _ExportPasswordsScreenState extends State<ExportPasswordsScreen> {
                                 style: GoogleFonts.poppins(color: AppColors.textSecondary, fontSize: 11),
                               ),
                             ),
-                            const Divider(color: AppColors.border, height: 1),
+                            Divider(color: AppColors.border, height: 1),
                             RadioListTile<bool>(
                               value: true,
                               groupValue: _exportToGDrive,
@@ -434,7 +434,7 @@ class _ExportPasswordsScreenState extends State<ExportPasswordsScreen> {
                       _exporting
                           ? Column(
                               children: [
-                                const CircularProgressIndicator(
+                                CircularProgressIndicator(
                                   valueColor: AlwaysStoppedAnimation(
                                     AppColors.primary,
                                   ),

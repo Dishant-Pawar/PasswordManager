@@ -663,6 +663,7 @@ class SettingsScreenState extends State<SettingsScreen> {
         actions: [
           TextButton(
             onPressed: () {
+              controller.dispose();
               Navigator.pop(ctx);
             },
             child: Text(
@@ -682,6 +683,7 @@ class SettingsScreenState extends State<SettingsScreen> {
                 _passwordHint = newHint;
               });
               await SettingsService.instance.saveSetting('password_hint', newHint.isEmpty ? null : newHint);
+              controller.dispose();
               navigator.pop();
               messenger.showSnackBar(
                 SnackBar(
@@ -703,7 +705,7 @@ class SettingsScreenState extends State<SettingsScreen> {
           ),
         ],
       ),
-    ).then((_) => controller.dispose());
+    );
   }
 
   Future<String?> _copyPickedFile(String originalPath) async {

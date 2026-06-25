@@ -206,7 +206,7 @@ class _ImportPasswordsScreenState extends State<ImportPasswordsScreen> {
           builder: (ctx) => AlertDialog(
             backgroundColor: AppColors.surface,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: const Icon(
+            title: Icon(
               Icons.check_circle_rounded,
               color: AppColors.success,
               size: 48,
@@ -274,7 +274,7 @@ class _ImportPasswordsScreenState extends State<ImportPasswordsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.bgGradient),
+        decoration: BoxDecoration(gradient: AppColors.bgGradient),
         child: SafeArea(
           child: Column(
             children: [
@@ -284,7 +284,7 @@ class _ImportPasswordsScreenState extends State<ImportPasswordsScreen> {
                   children: [
                     IconButton(
                       onPressed: () => Navigator.pop(context),
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.arrow_back_ios_rounded,
                         color: AppColors.textPrimary,
                       ),
@@ -387,7 +387,7 @@ class _ImportPasswordsScreenState extends State<ImportPasswordsScreen> {
                                 style: GoogleFonts.poppins(color: AppColors.textSecondary, fontSize: 11),
                               ),
                             ),
-                            const Divider(color: AppColors.border, height: 1),
+                            Divider(color: AppColors.border, height: 1),
                             RadioListTile<bool>(
                               value: true,
                               groupValue: _importFromGDrive,
@@ -488,7 +488,7 @@ class _ImportPasswordsScreenState extends State<ImportPasswordsScreen> {
                                   const Spacer(),
                                   if (_gdriveConnected && !_loadingGDriveFiles)
                                     IconButton(
-                                      icon: const Icon(Icons.refresh_rounded, size: 18, color: AppColors.textSecondary),
+                                      icon: Icon(Icons.refresh_rounded, size: 18, color: AppColors.textSecondary),
                                       onPressed: _fetchGDriveFiles,
                                     ),
                                 ],
@@ -501,7 +501,7 @@ class _ImportPasswordsScreenState extends State<ImportPasswordsScreen> {
                                   onTap: _connectGDrive,
                                 )
                               else if (_loadingGDriveFiles)
-                                const Center(
+                                Center(
                                   child: Padding(
                                     padding: EdgeInsets.symmetric(vertical: 20),
                                     child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(AppColors.primary)),
@@ -526,7 +526,7 @@ class _ImportPasswordsScreenState extends State<ImportPasswordsScreen> {
                                     labelStyle: GoogleFonts.poppins(color: AppColors.textSecondary),
                                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                                     enabledBorder: OutlineInputBorder(
-                                      borderSide: const BorderSide(color: AppColors.border),
+                                      borderSide: BorderSide(color: AppColors.border),
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                   ),
@@ -569,7 +569,7 @@ class _ImportPasswordsScreenState extends State<ImportPasswordsScreen> {
                       _importing
                           ? Column(
                               children: [
-                                const CircularProgressIndicator(
+                                CircularProgressIndicator(
                                   valueColor: AlwaysStoppedAnimation(
                                     AppColors.primary,
                                   ),

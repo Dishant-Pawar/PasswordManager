@@ -42,7 +42,7 @@ class _ViewPasswordScreenState extends State<ViewPasswordScreen> {
 
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.bgGradient),
+        decoration: BoxDecoration(gradient: AppColors.bgGradient),
         child: SafeArea(
           child: Column(
             children: [
@@ -53,7 +53,7 @@ class _ViewPasswordScreenState extends State<ViewPasswordScreen> {
                   children: [
                     IconButton(
                       onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.arrow_back_ios_rounded, color: AppColors.textPrimary),
+                      icon: Icon(Icons.arrow_back_ios_rounded, color: AppColors.textPrimary),
                     ),
                     const Spacer(),
                     IconButton(
@@ -64,7 +64,7 @@ class _ViewPasswordScreenState extends State<ViewPasswordScreen> {
                           arguments: passwordItem,
                         );
                       },
-                      icon: const Icon(Icons.edit_outlined, color: AppColors.primary),
+                      icon: Icon(Icons.edit_outlined, color: AppColors.primary),
                     ),
                     IconButton(
                       onPressed: () async {
@@ -73,7 +73,7 @@ class _ViewPasswordScreenState extends State<ViewPasswordScreen> {
                           if (context.mounted) Navigator.pop(context);
                         }
                       },
-                      icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error),
+                      icon: Icon(Icons.delete_outline_rounded, color: AppColors.error),
                     ),
                   ],
                 ).animate().fadeIn(duration: 400.ms),
@@ -168,7 +168,7 @@ class _ViewPasswordScreenState extends State<ViewPasswordScreen> {
                                 ),
                                 IconButton(
                                   onPressed: () => _copy('Password', passwordItem.password),
-                                  icon: const Icon(Icons.copy_rounded, color: AppColors.primary, size: 20),
+                                  icon: Icon(Icons.copy_rounded, color: AppColors.primary, size: 20),
                                 ),
                               ],
                             ),
@@ -190,7 +190,7 @@ class _ViewPasswordScreenState extends State<ViewPasswordScreen> {
                         child: Column(
                           children: [
                             _MetaRow(label: 'Created', value: createdStr),
-                            const Divider(color: AppColors.border, height: 20),
+                            Divider(color: AppColors.border, height: 20),
                             _MetaRow(label: 'Last Updated', value: updatedStr),
                           ],
                         ),
@@ -241,7 +241,7 @@ class _InfoCard extends StatelessWidget {
           if (onCopy != null)
             IconButton(
               onPressed: onCopy,
-              icon: const Icon(Icons.copy_rounded, color: AppColors.primary, size: 20),
+              icon: Icon(Icons.copy_rounded, color: AppColors.primary, size: 20),
             ),
         ],
       ),

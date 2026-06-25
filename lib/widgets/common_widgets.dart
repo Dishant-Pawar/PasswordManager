@@ -272,7 +272,7 @@ class SecurityBadge extends StatelessWidget {
   final String label;
   final Color color;
 
-  const SecurityBadge({
+  SecurityBadge({
     super.key,
     required this.label,
     this.color = AppColors.success,
@@ -470,7 +470,7 @@ class PasswordListTile extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(
+            Icon(
               Icons.chevron_right_rounded,
               color: AppColors.textSecondary,
               size: 20,
@@ -607,7 +607,7 @@ class DocumentTile extends StatelessWidget {
             else ...[
               if (onDownload != null)
                 IconButton(
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.file_download_rounded,
                     color: AppColors.primary,
                     size: 22,
@@ -616,7 +616,7 @@ class DocumentTile extends StatelessWidget {
                 ),
               if (onShare != null)
                 IconButton(
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.share_rounded,
                     color: AppColors.accent,
                     size: 20,
@@ -625,7 +625,7 @@ class DocumentTile extends StatelessWidget {
                 ),
               if (onDelete != null)
                 IconButton(
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.delete_outline_rounded,
                     color: AppColors.error,
                     size: 22,
@@ -633,7 +633,7 @@ class DocumentTile extends StatelessWidget {
                   onPressed: onDelete,
                 )
               else if (onDownload == null && onShare == null)
-                const Icon(
+                Icon(
                   Icons.chevron_right_rounded,
                   color: AppColors.textSecondary,
                   size: 20,
@@ -707,7 +707,7 @@ class SettingsTile extends StatelessWidget {
               ),
             ),
             trailing ??
-                const Icon(
+                Icon(
                   Icons.chevron_right_rounded,
                   color: AppColors.textSecondary,
                   size: 20,

@@ -185,7 +185,7 @@ class _AddPasswordScreenState extends State<AddPasswordScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.bgGradient),
+        decoration: BoxDecoration(gradient: AppColors.bgGradient),
         child: SafeArea(
           child: Column(
             children: [
@@ -196,7 +196,7 @@ class _AddPasswordScreenState extends State<AddPasswordScreen> {
                   children: [
                     IconButton(
                       onPressed: () => Navigator.pop(context),
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.arrow_back_ios_rounded,
                         color: AppColors.textPrimary,
                       ),
@@ -298,7 +298,7 @@ class _AddPasswordScreenState extends State<AddPasswordScreen> {
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const Icon(
+                                      Icon(
                                         Icons.auto_awesome_rounded,
                                         color: AppColors.primary,
                                         size: 13,
@@ -536,7 +536,7 @@ class _PasswordGeneratorPanel extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.auto_awesome_rounded,
                   color: AppColors.primary,
                   size: 16,
@@ -598,7 +598,7 @@ class _PasswordGeneratorPanel extends StatelessWidget {
                             color: AppColors.primary.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.refresh_rounded,
                             color: AppColors.primary,
                             size: 16,
@@ -615,7 +615,7 @@ class _PasswordGeneratorPanel extends StatelessWidget {
                             color: AppColors.accent.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.copy_rounded,
                             color: AppColors.accent,
                             size: 16,

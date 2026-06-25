@@ -98,7 +98,7 @@ class _ChangeMasterPasswordScreenState
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Icon(
+        title: Icon(
           Icons.check_circle_rounded,
           color: AppColors.success,
           size: 48,
@@ -149,7 +149,7 @@ class _ChangeMasterPasswordScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.bgGradient),
+        decoration: BoxDecoration(gradient: AppColors.bgGradient),
         child: SafeArea(
           child: Column(
             children: [
@@ -159,7 +159,7 @@ class _ChangeMasterPasswordScreenState
                   children: [
                     IconButton(
                       onPressed: () => Navigator.pop(context),
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.arrow_back_ios_rounded,
                         color: AppColors.textPrimary,
                       ),
@@ -175,7 +175,7 @@ class _ChangeMasterPasswordScreenState
                       ),
                     ),
                     _saving
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 24,
                             height: 24,
                             child: CircularProgressIndicator(
@@ -228,7 +228,7 @@ class _ChangeMasterPasswordScreenState
                                 ),
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.warning_amber_rounded,
                                 color: AppColors.warning,
                                 size: 22,

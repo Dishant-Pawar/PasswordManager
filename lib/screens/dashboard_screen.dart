@@ -277,7 +277,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                           : (hasUrl ? NetworkImage(localPhotoUrl!) : null),
                       child: hasLocalFile || hasUrl
                           ? null
-                          : const Icon(
+                          : Icon(
                               Icons.person_rounded,
                               color: AppColors.primary,
                               size: 40,
@@ -446,10 +446,10 @@ class DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.bgGradient),
+        decoration: BoxDecoration(gradient: AppColors.bgGradient),
         child: SafeArea(
           child: _isLoading 
-            ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+            ? Center(child: CircularProgressIndicator(color: AppColors.primary))
             : CustomScrollView(
             slivers: [
               SliverToBoxAdapter(
@@ -485,7 +485,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                                    child: (_profilePhotoPath != null && File(_profilePhotoPath!).existsSync()) ||
                                            (_profilePhotoUrl != null && _profilePhotoUrl!.isNotEmpty)
                                        ? null
-                                       : const Icon(
+                                       : Icon(
                                            Icons.person_rounded,
                                            color: AppColors.primary,
                                            size: 22,
@@ -507,7 +507,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                         ),
                         decoration: InputDecoration(
                           hintText: 'Search passwords, documents...',
-                          prefixIcon: const Icon(
+                          prefixIcon: Icon(
                             Icons.search_rounded,
                             color: AppColors.textSecondary,
                             size: 22,
@@ -517,7 +517,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                             children: [
                               if (_searchController.text.isNotEmpty)
                                 IconButton(
-                                  icon: const Icon(
+                                  icon: Icon(
                                     Icons.close_rounded,
                                     color: AppColors.textSecondary,
                                     size: 20,
@@ -859,7 +859,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    const Icon(Icons.zoom_out_rounded, color: AppColors.textSecondary, size: 20),
+                    Icon(Icons.zoom_out_rounded, color: AppColors.textSecondary, size: 20),
                     Expanded(
                       child: Slider(
                         value: currentZoom,
@@ -876,7 +876,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                         },
                       ),
                     ),
-                    const Icon(Icons.zoom_in_rounded, color: AppColors.textSecondary, size: 20),
+                    Icon(Icons.zoom_in_rounded, color: AppColors.textSecondary, size: 20),
                   ],
                 ),
                 TextButton.icon(
@@ -885,7 +885,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                       quarterTurns = (quarterTurns + 1) % 4;
                     });
                   },
-                  icon: const Icon(Icons.rotate_right_rounded, color: AppColors.primary),
+                  icon: Icon(Icons.rotate_right_rounded, color: AppColors.primary),
                   label: Text(
                     'Rotate 90°',
                     style: GoogleFonts.poppins(
