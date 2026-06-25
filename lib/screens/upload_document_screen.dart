@@ -23,6 +23,12 @@ class _UploadDocumentScreenState extends State<UploadDocumentScreen> {
   PlatformFile? _selectedFile;
   bool _uploading = false;
 
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    super.dispose();
+  }
+
   bool get _fileSelected => _selectedFile != null;
 
   String _formatFileSize(int bytes) {

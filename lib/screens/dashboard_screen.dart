@@ -19,10 +19,13 @@ class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
+  State<DashboardScreen> createState() => DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class DashboardScreenState extends State<DashboardScreen> {
+  void reload() {
+    _loadData();
+  }
   int _passwordCount = 0;
   int _documentCount = 0;
   List<PasswordItem> _recentPasswords = [];
@@ -517,22 +520,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
       ),
-      bottomNavigationBar: _BottomNav(
-        currentIndex: 0,
-        context: context,
-        onSettingsReturn: _loadData,
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          await Navigator.pushNamed(context, '/add-password');
-          _loadData();
-        },
-        backgroundColor: AppColors.primary,
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );
   }
 
@@ -719,115 +706,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           );
         },
-      ),
-    );
-  }
-}
-
-class _BottomNav extends StatelessWidget {
-  final int currentIndex;
-  final BuildContext context;
-  final VoidCallback? onSettingsReturn;
-
-  const _BottomNav({
-    required this.currentIndex,
-    required this.context,
-    this.onSettingsReturn,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border(top: BorderSide(color: AppColors.border, width: 1)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.2),
-            blurRadius: 20,
-            offset: const Offset(0, -5),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _navItem(
-                Icons.key_rounded,
-                'Passwords',
-                0,
-                currentIndex,
-                () => Navigator.pushReplacementNamed(context, '/dashboard'),
-              ),
-              _navItem(
-                Icons.folder_rounded,
-                'Documents',
-                1,
-                currentIndex,
-                () => Navigator.pushNamed(context, '/documents'),
-              ),
-              const SizedBox(width: 48),
-              _navItem(
-                Icons.backup_rounded,
-                'Backup',
-                2,
-                currentIndex,
-                () => Navigator.pushNamed(context, '/backup'),
-              ),
-              _navItem(
-                Icons.settings_rounded,
-                'Settings',
-                3,
-                currentIndex,
-                () async {
-                  await Navigator.pushNamed(context, '/settings');
-                  if (onSettingsReturn != null) {
-                    onSettingsReturn!();
-                  }
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _navItem(
-    IconData icon,
-    String label,
-    int index,
-    int current,
-    VoidCallback onTap,
-  ) {
-    final isActive = index == current;
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              color: isActive ? AppColors.primary : AppColors.textSecondary,
-              size: 22,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: GoogleFonts.poppins(
-                color: isActive ? AppColors.primary : AppColors.textSecondary,
-                fontSize: 10,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

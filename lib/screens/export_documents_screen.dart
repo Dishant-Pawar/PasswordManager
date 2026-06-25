@@ -5,12 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:encrypt/encrypt.dart' as enc;
-import 'package:crypto/crypto.dart' as crypto;
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import '../services/database_helper.dart';
 import '../services/gdrive_service.dart';
+import '../services/encryption_helper.dart';
 
 class ExportDocumentsScreen extends StatefulWidget {
   const ExportDocumentsScreen({super.key});
@@ -30,6 +29,13 @@ class _ExportDocumentsScreenState extends State<ExportDocumentsScreen> {
   void initState() {
     super.initState();
     _checkGDriveStatus();
+  }
+
+  @override
+  void dispose() {
+    _passphraseCtrl.dispose();
+    _confirmCtrl.dispose();
+    super.dispose();
   }
 
   void _checkGDriveStatus() async {
@@ -122,22 +128,18 @@ class _ExportDocumentsScreenState extends State<ExportDocumentsScreen> {
       
       final jsonString = jsonEncode(docMaps);
 
-      // 3. Derive 32-byte key from passphrase using SHA-256
-      final keyBytes = crypto.sha256.convert(utf8.encode(passphrase)).bytes;
-      final key = enc.Key(Uint8List.fromList(keyBytes));
+      // 3. Encrypt data off-thread on Isolate
+      final encryptedResult = await EncryptionHelper.encryptData(
+        passphrase: passphrase,
+        plaintext: jsonString,
+      );
 
-      // 4. Generate random 16-byte IV for AES-CBC
-      final iv = enc.IV.fromSecureRandom(16);
-
-      // 5. Encrypt using AES-CBC
-      final encrypter = enc.Encrypter(enc.AES(key, mode: enc.AESMode.cbc));
-      final encrypted = encrypter.encrypt(jsonString, iv: iv);
-
-      // 6. Create the structured JSON backup payload
+      // 4. Create the structured JSON backup payload (version 2)
       final backupPayload = {
-        'version': 1,
-        'iv': iv.base64,
-        'ciphertext': encrypted.base64,
+        'version': 2,
+        'salt': encryptedResult['salt']!,
+        'iv': encryptedResult['iv']!,
+        'ciphertext': encryptedResult['ciphertext']!,
       };
       
       final backupString = jsonEncode(backupPayload);

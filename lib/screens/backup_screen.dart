@@ -5,26 +5,28 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:encrypt/encrypt.dart' as enc;
-import 'package:crypto/crypto.dart' as crypto;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
-import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_sqlcipher/sqflite.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import '../services/settings_service.dart';
 import '../services/database_helper.dart';
 import '../services/gdrive_service.dart';
+import '../services/encryption_helper.dart';
 
 class BackupScreen extends StatefulWidget {
   const BackupScreen({super.key});
 
   @override
-  State<BackupScreen> createState() => _BackupScreenState();
+  State<BackupScreen> createState() => BackupScreenState();
 }
 
-class _BackupScreenState extends State<BackupScreen> {
+class BackupScreenState extends State<BackupScreen> {
+  void reload() {
+    _loadBackupSettings();
+  }
   String? _primaryDrive;
   String? _backupDirectory;
   List<Map<String, String>> _availableDrives = [];
@@ -483,17 +485,16 @@ class _BackupScreenState extends State<BackupScreen> {
       final List<Map<String, dynamic>> passwordMaps = passwords.map((p) => p.toMap()).toList();
       final pwJsonString = jsonEncode(passwordMaps);
       
-      final keyBytes = crypto.sha256.convert(utf8.encode(passphrase)).bytes;
-      final key = enc.Key(Uint8List.fromList(keyBytes));
-      
-      final pwIv = enc.IV.fromSecureRandom(16);
-      final pwEncrypter = enc.Encrypter(enc.AES(key, mode: enc.AESMode.cbc));
-      final pwEncrypted = pwEncrypter.encrypt(pwJsonString, iv: pwIv);
+      final pwEncryptedResult = await EncryptionHelper.encryptData(
+        passphrase: passphrase,
+        plaintext: pwJsonString,
+      );
       
       final pwBackupPayload = {
-        'version': 1,
-        'iv': pwIv.base64,
-        'ciphertext': pwEncrypted.base64,
+        'version': 2,
+        'salt': pwEncryptedResult['salt']!,
+        'iv': pwEncryptedResult['iv']!,
+        'ciphertext': pwEncryptedResult['ciphertext']!,
       };
       final pwBackupString = jsonEncode(pwBackupPayload);
       final pwBytes = Uint8List.fromList(utf8.encode(pwBackupString));
@@ -516,14 +517,17 @@ class _BackupScreenState extends State<BackupScreen> {
         }
       }
       final docJsonString = jsonEncode(docMaps);
-      final docIv = enc.IV.fromSecureRandom(16);
-      final docEncrypter = enc.Encrypter(enc.AES(key, mode: enc.AESMode.cbc));
-      final docEncrypted = docEncrypter.encrypt(docJsonString, iv: docIv);
+      
+      final docEncryptedResult = await EncryptionHelper.encryptData(
+        passphrase: passphrase,
+        plaintext: docJsonString,
+      );
       
       final docBackupPayload = {
-        'version': 1,
-        'iv': docIv.base64,
-        'ciphertext': docEncrypted.base64,
+        'version': 2,
+        'salt': docEncryptedResult['salt']!,
+        'iv': docEncryptedResult['iv']!,
+        'ciphertext': docEncryptedResult['ciphertext']!,
       };
       final docBackupString = jsonEncode(docBackupPayload);
       final docBytes = Uint8List.fromList(utf8.encode(docBackupString));
@@ -766,7 +770,6 @@ class _BackupScreenState extends State<BackupScreen> {
           ),
         ),
       ),
-      bottomNavigationBar: _buildBottomNav(context),
     );
   }
 
@@ -1128,79 +1131,6 @@ class _BackupScreenState extends State<BackupScreen> {
     ).animate().fadeIn(delay: 220.ms).slideX(begin: 0.05, end: 0);
   }
 
-
-
-  Widget _buildBottomNav(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border(top: BorderSide(color: AppColors.border, width: 1)),
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _navItem(
-                Icons.key_rounded,
-                'Passwords',
-                false,
-                () => Navigator.pushReplacementNamed(context, '/dashboard'),
-              ),
-              _navItem(
-                Icons.folder_rounded,
-                'Documents',
-                false,
-                () => Navigator.pushNamed(context, '/documents'),
-              ),
-              const SizedBox(width: 48), // Spacer for center docked button if any
-              _navItem(Icons.backup_rounded, 'Backup', true, () {}),
-              _navItem(
-                Icons.settings_rounded,
-                'Settings',
-                false,
-                () => Navigator.pushNamed(context, '/settings'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _navItem(
-    IconData icon,
-    String label,
-    bool isActive,
-    VoidCallback onTap,
-  ) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              color: isActive ? AppColors.primary : AppColors.textSecondary,
-              size: 22,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: GoogleFonts.poppins(
-                color: isActive ? AppColors.primary : AppColors.textSecondary,
-                fontSize: 10,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 

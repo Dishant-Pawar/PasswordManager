@@ -5,8 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:encrypt/encrypt.dart' as enc;
-import 'package:crypto/crypto.dart' as crypto;
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:googleapis/drive/v3.dart' as drive;
@@ -15,6 +13,7 @@ import '../widgets/common_widgets.dart';
 import '../services/database_helper.dart';
 import '../models/document_item.dart';
 import '../services/gdrive_service.dart';
+import '../services/encryption_helper.dart';
 
 class ImportDocumentsScreen extends StatefulWidget {
   const ImportDocumentsScreen({super.key});
@@ -37,6 +36,12 @@ class _ImportDocumentsScreenState extends State<ImportDocumentsScreen> {
   void initState() {
     super.initState();
     _checkGDriveStatus();
+  }
+
+  @override
+  void dispose() {
+    _passphraseCtrl.dispose();
+    super.dispose();
   }
 
   void _checkGDriveStatus() async {
@@ -167,34 +172,36 @@ class _ImportDocumentsScreenState extends State<ImportDocumentsScreen> {
       final backupString = utf8.decode(fileBytes);
       final Map<String, dynamic> backupPayload = jsonDecode(backupString);
 
-      if (backupPayload['version'] != 1 ||
+      final version = backupPayload['version'];
+      if ((version != 1 && version != 2) ||
           backupPayload['iv'] == null ||
           backupPayload['ciphertext'] == null) {
         throw Exception('Invalid or unsupported backup file format.');
       }
 
-      final iv = enc.IV.fromBase64(backupPayload['iv']);
       final ciphertext = backupPayload['ciphertext'];
+      final ivBase64 = backupPayload['iv'];
+      final saltBase64 = backupPayload['salt'] as String?;
 
-      // 3. Derive 32-byte key from passphrase using SHA-256
-      final keyBytes = crypto.sha256.convert(utf8.encode(passphrase)).bytes;
-      final key = enc.Key(Uint8List.fromList(keyBytes));
-
-      // 4. Decrypt payload
-      final encrypter = enc.Encrypter(enc.AES(key, mode: enc.AESMode.cbc));
-      final decryptedString = encrypter.decrypt64(ciphertext, iv: iv);
+      // 4. Decrypt payload off-thread on Isolate
+      final decryptedString = await EncryptionHelper.decryptData(
+        passphrase: passphrase,
+        ciphertextBase64: ciphertext,
+        ivBase64: ivBase64,
+        saltBase64: saltBase64,
+      );
 
       // 5. Parse decrypted list of documents
       final List<dynamic> docMaps = jsonDecode(decryptedString);
       
-      // 6. Write imported documents to local disk and database
+      // 6. Write imported documents to local disk and database using batch transaction
       final appDir = await getApplicationDocumentsDirectory();
       final savedDir = Directory(p.join(appDir.path, 'documents'));
       if (!await savedDir.exists()) {
         await savedDir.create(recursive: true);
       }
 
-      int importedCount = 0;
+      final List<DocumentItem> importedDocs = [];
       for (final map in docMaps) {
         final fileData = base64Decode(map['fileContentBase64']);
         final uniqueName = '${DateTime.now().millisecondsSinceEpoch}_${map['name']}';
@@ -210,9 +217,12 @@ class _ImportDocumentsScreenState extends State<ImportDocumentsScreen> {
           sizeBytes: map['sizeBytes'],
           createdAt: DateTime.parse(map['createdAt']),
         );
-        await DatabaseHelper.instance.createDocument(newDoc);
-        importedCount++;
+        importedDocs.add(newDoc);
       }
+
+      final dbHelper = DatabaseHelper.instance;
+      await dbHelper.importDocuments(importedDocs);
+      final importedCount = importedDocs.length;
 
       if (mounted) {
         setState(() => _importing = false);

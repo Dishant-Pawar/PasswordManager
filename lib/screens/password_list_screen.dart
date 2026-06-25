@@ -43,13 +43,20 @@ class _PasswordListScreenState extends State<PasswordListScreen> {
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                padding: const EdgeInsets.fromLTRB(10, 20, 20, 0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
+                        IconButton(
+                          onPressed: () => Navigator.pop(context),
+                          icon: const Icon(
+                            Icons.arrow_back_ios_rounded,
+                            color: AppColors.textPrimary,
+                            size: 20,
+                          ),
+                        ),
                         Text(
                           'Passwords',
                           style: GoogleFonts.poppins(
@@ -58,6 +65,7 @@ class _PasswordListScreenState extends State<PasswordListScreen> {
                             fontWeight: FontWeight.w700,
                           ),
                         ),
+                        const Spacer(),
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,
@@ -145,7 +153,6 @@ class _PasswordListScreenState extends State<PasswordListScreen> {
           ),
         ),
       ),
-      bottomNavigationBar: _buildBottomNav(context),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           await Navigator.pushNamed(context, '/add-password');
@@ -157,83 +164,6 @@ class _PasswordListScreenState extends State<PasswordListScreen> {
         child: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-    );
-  }
-
-  Widget _buildBottomNav(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border(top: BorderSide(color: AppColors.border, width: 1)),
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _navItem(
-                Icons.key_rounded,
-                'Passwords',
-                true,
-                () => Navigator.pushReplacementNamed(context, '/dashboard'),
-              ),
-              _navItem(
-                Icons.folder_rounded,
-                'Documents',
-                false,
-                () => Navigator.pushNamed(context, '/documents'),
-              ),
-              const SizedBox(width: 48),
-              _navItem(
-                Icons.backup_rounded,
-                'Backup',
-                false,
-                () => Navigator.pushNamed(context, '/backup'),
-              ),
-              _navItem(
-                Icons.settings_rounded,
-                'Settings',
-                false,
-                () => Navigator.pushNamed(context, '/settings'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _navItem(
-    IconData icon,
-    String label,
-    bool isActive,
-    VoidCallback onTap,
-  ) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              color: isActive ? AppColors.primary : AppColors.textSecondary,
-              size: 22,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: GoogleFonts.poppins(
-                color: isActive ? AppColors.primary : AppColors.textSecondary,
-                fontSize: 10,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

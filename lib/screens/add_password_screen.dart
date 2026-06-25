@@ -42,6 +42,8 @@ class _AddPasswordScreenState extends State<AddPasswordScreen> {
     _generatePassword();
   }
 
+
+
   PasswordItem? _existingItem;
   bool _isInit = false;
 
@@ -333,7 +335,7 @@ class _AddPasswordScreenState extends State<AddPasswordScreen> {
                       // ── Strength indicator ─────────────────────────────────
                       ValueListenableBuilder(
                         valueListenable: _passwordCtrl,
-                        builder: (_, v, __) {
+                        builder: (_, v, _) {
                           return PasswordStrengthIndicator(
                             strength: _calcStrength(_passwordCtrl.text),
                           );

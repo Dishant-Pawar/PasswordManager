@@ -3,6 +3,8 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
+import '../services/database_helper.dart';
+import '../services/settings_service.dart';
 
 class CreateMasterPasswordScreen extends StatefulWidget {
   const CreateMasterPasswordScreen({super.key});
@@ -16,15 +18,63 @@ class _CreateMasterPasswordScreenState
     extends State<CreateMasterPasswordScreen> {
   final _passController = TextEditingController();
   final _confirmController = TextEditingController();
-  double _strength = 0;
+  final _hintController = TextEditingController();
 
-  void _onPasswordChanged(String value) {
-    double s = 0;
-    if (value.length >= 8) s += 0.25;
-    if (value.contains(RegExp(r'[A-Z]'))) s += 0.25;
-    if (value.contains(RegExp(r'[0-9]'))) s += 0.25;
-    if (value.contains(RegExp(r'[!@#\$%^&*]'))) s += 0.25;
-    setState(() => _strength = s);
+  @override
+  void dispose() {
+    _passController.dispose();
+    _confirmController.dispose();
+    _hintController.dispose();
+    super.dispose();
+  }
+
+  void _createVault() async {
+    final password = _passController.text;
+    final confirm = _confirmController.text;
+
+    if (password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Please enter a master password.', style: GoogleFonts.poppins()),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
+    if (password.length < 8 ||
+        !password.contains(RegExp(r'[A-Z]')) ||
+        !password.contains(RegExp(r'[0-9]')) ||
+        !password.contains(RegExp(r'[!@#\$%^&*]'))) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Password does not meet requirements.', style: GoogleFonts.poppins()),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
+    if (password != confirm) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Passwords do not match.', style: GoogleFonts.poppins()),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
+    await DatabaseHelper.instance.createAndOpenDatabase(password);
+
+    final hint = _hintController.text.trim();
+    if (hint.isNotEmpty) {
+      await SettingsService.instance.saveSetting('password_hint', hint);
+    }
+
+    if (mounted) {
+      Navigator.pushReplacementNamed(context, '/dashboard');
+    }
   }
 
   @override
@@ -146,12 +196,16 @@ class _CreateMasterPasswordScreenState
                   controller: _passController,
                 ).animate().fadeIn(delay: 400.ms),
                 const SizedBox(height: 16),
-                // Strength indicator with live feedback
                 ValueListenableBuilder(
                   valueListenable: _passController,
-                  builder: (_, v, _) {
-                    _onPasswordChanged(_passController.text);
-                    return PasswordStrengthIndicator(strength: _strength);
+                  builder: (_, value, _) {
+                    final text = value.text;
+                    double s = 0;
+                    if (text.length >= 8) s += 0.25;
+                    if (text.contains(RegExp(r'[A-Z]'))) s += 0.25;
+                    if (text.contains(RegExp(r'[0-9]'))) s += 0.25;
+                    if (text.contains(RegExp(r'[!@#\$%^&*]'))) s += 0.25;
+                    return PasswordStrengthIndicator(strength: s);
                   },
                 ).animate().fadeIn(delay: 450.ms),
                 const SizedBox(height: 20),
@@ -164,12 +218,17 @@ class _CreateMasterPasswordScreenState
                   isPassword: true,
                   controller: _confirmController,
                 ).animate().fadeIn(delay: 500.ms),
+                const SizedBox(height: 20),
+                SVaultTextField(
+                  label: 'Password Hint (Optional)',
+                  hint: 'Enter a reminder for your password',
+                  controller: _hintController,
+                ).animate().fadeIn(delay: 550.ms),
                 const SizedBox(height: 36),
                 GradientButton(
                   label: 'Create Vault',
                   icon: Icons.lock_rounded,
-                  onTap: () =>
-                      Navigator.pushReplacementNamed(context, '/dashboard'),
+                  onTap: _createVault,
                 ).animate().fadeIn(delay: 600.ms).slideY(begin: 0.2, end: 0),
                 const SizedBox(height: 24),
               ],

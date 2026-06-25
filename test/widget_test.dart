@@ -23,7 +23,7 @@ void main() {
 
     // Let the splash screen timer run and resolve navigation
     await tester.pump(const Duration(seconds: 3));
-    await tester.pumpAndSettle();
+    await tester.pump();
 
     // Reset view settings
     addTearDown(tester.view.resetPhysicalSize);

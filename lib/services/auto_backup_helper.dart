@@ -1,16 +1,25 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:encrypt/encrypt.dart' as enc;
-import 'package:crypto/crypto.dart' as crypto;
 import 'database_helper.dart';
+import 'encryption_helper.dart';
 import 'gdrive_service.dart';
 import 'settings_service.dart';
 
 class AutoBackupHelper {
+  static Timer? _debounceTimer;
+
   static Future<void> triggerAutoBackup() async {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(seconds: 5), () async {
+      await _runAutoBackup();
+    });
+  }
+
+  static Future<void> _runAutoBackup() async {
     try {
       // 1. Check if auto backup is enabled in settings
       final settings = await SettingsService.instance.loadSettings();
@@ -34,32 +43,39 @@ class AutoBackupHelper {
       final passwords = await dbHelper.readAllPasswords();
       final documents = await dbHelper.readAllDocuments();
 
-      // Retrieve the user's custom auto backup passphrase if configured; otherwise use the default secure fallback.
+      // Retrieve backup passphrase (custom or fallback to database password)
       final customPassphrase = settings['auto_backup_passphrase'] as String?;
-      final passphrase = (customPassphrase != null && customPassphrase.trim().isNotEmpty)
-          ? customPassphrase.trim()
-          : 'SecureVaultAutoBackupPassphraseKey123!';
+      String? passphrase;
+      if (customPassphrase != null && customPassphrase.trim().isNotEmpty) {
+        passphrase = customPassphrase.trim();
+      } else {
+        passphrase = DatabaseHelper.databasePassword;
+      }
 
-      // Encryption logic for passwords
+      if (passphrase == null) {
+        debugPrint('Auto backup skipped: No passphrase or database password is available.');
+        return;
+      }
+
+      // Encryption logic for passwords off-thread
       final List<Map<String, dynamic>> passwordMaps = passwords.map((p) => p.toMap()).toList();
       final pwJsonString = jsonEncode(passwordMaps);
-      
-      final keyBytes = crypto.sha256.convert(utf8.encode(passphrase)).bytes;
-      final key = enc.Key(Uint8List.fromList(keyBytes));
-      
-      final pwIv = enc.IV.fromSecureRandom(16);
-      final pwEncrypter = enc.Encrypter(enc.AES(key, mode: enc.AESMode.cbc));
-      final pwEncrypted = pwEncrypter.encrypt(pwJsonString, iv: pwIv);
-      
+
+      final pwEncryptedResult = await EncryptionHelper.encryptData(
+        passphrase: passphrase,
+        plaintext: pwJsonString,
+      );
+
       final pwBackupPayload = {
-        'version': 1,
-        'iv': pwIv.base64,
-        'ciphertext': pwEncrypted.base64,
+        'version': 2,
+        'salt': pwEncryptedResult['salt']!,
+        'iv': pwEncryptedResult['iv']!,
+        'ciphertext': pwEncryptedResult['ciphertext']!,
       };
       final pwBackupString = jsonEncode(pwBackupPayload);
       final pwBytes = Uint8List.fromList(utf8.encode(pwBackupString));
 
-      // Encryption logic for documents
+      // Encryption logic for documents off-thread
       final List<Map<String, dynamic>> docMaps = [];
       for (final doc in documents) {
         if (doc.filePath.isNotEmpty) {
@@ -77,14 +93,17 @@ class AutoBackupHelper {
         }
       }
       final docJsonString = jsonEncode(docMaps);
-      final docIv = enc.IV.fromSecureRandom(16);
-      final docEncrypter = enc.Encrypter(enc.AES(key, mode: enc.AESMode.cbc));
-      final docEncrypted = docEncrypter.encrypt(docJsonString, iv: docIv);
-      
+
+      final docEncryptedResult = await EncryptionHelper.encryptData(
+        passphrase: passphrase,
+        plaintext: docJsonString,
+      );
+
       final docBackupPayload = {
-        'version': 1,
-        'iv': docIv.base64,
-        'ciphertext': docEncrypted.base64,
+        'version': 2,
+        'salt': docEncryptedResult['salt']!,
+        'iv': docEncryptedResult['iv']!,
+        'ciphertext': docEncryptedResult['ciphertext']!,
       };
       final docBackupString = jsonEncode(docBackupPayload);
       final docBytes = Uint8List.fromList(utf8.encode(docBackupString));

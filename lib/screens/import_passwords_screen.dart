@@ -5,14 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:encrypt/encrypt.dart' as enc;
-import 'package:crypto/crypto.dart' as crypto;
 import 'package:googleapis/drive/v3.dart' as drive;
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import '../services/database_helper.dart';
 import '../models/password_item.dart';
 import '../services/gdrive_service.dart';
+import '../services/encryption_helper.dart';
 
 class ImportPasswordsScreen extends StatefulWidget {
   const ImportPasswordsScreen({super.key});
@@ -35,6 +34,12 @@ class _ImportPasswordsScreenState extends State<ImportPasswordsScreen> {
   void initState() {
     super.initState();
     _checkGDriveStatus();
+  }
+
+  @override
+  void dispose() {
+    _passphraseCtrl.dispose();
+    super.dispose();
   }
 
   void _checkGDriveStatus() async {
@@ -165,49 +170,33 @@ class _ImportPasswordsScreenState extends State<ImportPasswordsScreen> {
       final backupString = utf8.decode(fileBytes);
       final Map<String, dynamic> backupPayload = jsonDecode(backupString);
 
-      if (backupPayload['version'] != 1 ||
+      final version = backupPayload['version'];
+      if ((version != 1 && version != 2) ||
           backupPayload['iv'] == null ||
           backupPayload['ciphertext'] == null) {
         throw Exception('Invalid or unsupported backup file format.');
       }
 
-      final iv = enc.IV.fromBase64(backupPayload['iv']);
       final ciphertext = backupPayload['ciphertext'];
+      final ivBase64 = backupPayload['iv'];
+      final saltBase64 = backupPayload['salt'] as String?;
 
-      // 3. Derive 32-byte key from passphrase using SHA-256
-      final keyBytes = crypto.sha256.convert(utf8.encode(passphrase)).bytes;
-      final key = enc.Key(Uint8List.fromList(keyBytes));
-
-      // 4. Decrypt payload
-      final encrypter = enc.Encrypter(enc.AES(key, mode: enc.AESMode.cbc));
-      final decryptedString = encrypter.decrypt64(ciphertext, iv: iv);
+      // 4. Decrypt payload off-thread on Isolate
+      final decryptedString = await EncryptionHelper.decryptData(
+        passphrase: passphrase,
+        ciphertextBase64: ciphertext,
+        ivBase64: ivBase64,
+        saltBase64: saltBase64,
+      );
 
       // 5. Parse decrypted list of passwords
       final List<dynamic> passwordMaps = jsonDecode(decryptedString);
       final importedPasswords = passwordMaps.map((map) => PasswordItem.fromMap(map)).toList();
 
-      // 6. Merge/insert passwords into database
+      // 6. Merge/insert passwords into database using batch transaction
       final dbHelper = DatabaseHelper.instance;
-      final existingPasswords = await dbHelper.readAllPasswords();
-
-      int importedCount = 0;
-      for (final item in importedPasswords) {
-        PasswordItem? match;
-        for (final existing in existingPasswords) {
-          if (existing.title.trim().toLowerCase() == item.title.trim().toLowerCase() &&
-              existing.username.trim() == item.username.trim()) {
-            match = existing;
-            break;
-          }
-        }
-
-        if (match != null) {
-          await dbHelper.updatePassword(item.copyWith(id: match.id));
-        } else {
-          await dbHelper.createPassword(item.copyWith(id: null));
-        }
-        importedCount++;
-      }
+      await dbHelper.importPasswords(importedPasswords);
+      final importedCount = importedPasswords.length;
 
       if (mounted) {
         setState(() => _importing = false);

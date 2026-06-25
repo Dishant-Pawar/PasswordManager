@@ -4,7 +4,7 @@ import 'theme/app_theme.dart';
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/create_master_password_screen.dart';
-import 'screens/dashboard_screen.dart';
+import 'screens/main_navigation_screen.dart';
 import 'screens/password_list_screen.dart';
 import 'screens/add_password_screen.dart';
 import 'screens/view_password_screen.dart';
@@ -55,7 +55,7 @@ class SecureVaultApp extends StatelessWidget {
         '/': (context) => const SplashScreen(),
         '/login': (context) => const LoginScreen(),
         '/create-master': (context) => const CreateMasterPasswordScreen(),
-        '/dashboard': (context) => const DashboardScreen(),
+        '/dashboard': (context) => const MainNavigationScreen(),
         '/passwords': (context) => const PasswordListScreen(),
         '/add-password': (context) => const AddPasswordScreen(),
         '/view-password': (context) => const ViewPasswordScreen(),

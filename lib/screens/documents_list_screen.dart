@@ -14,10 +14,13 @@ class DocumentsListScreen extends StatefulWidget {
   const DocumentsListScreen({super.key});
 
   @override
-  State<DocumentsListScreen> createState() => _DocumentsListScreenState();
+  State<DocumentsListScreen> createState() => DocumentsListScreenState();
 }
 
-class _DocumentsListScreenState extends State<DocumentsListScreen> {
+class DocumentsListScreenState extends State<DocumentsListScreen> {
+  void reload() {
+    _loadDocuments();
+  }
   final _search = TextEditingController();
   List<DocumentItem> _documents = [];
   bool _isLoading = true;
@@ -553,90 +556,6 @@ class _DocumentsListScreenState extends State<DocumentsListScreen> {
               ),
             ],
           ),
-        ),
-      ),
-      bottomNavigationBar: _buildBottomNav(context),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          await Navigator.pushNamed(context, '/upload-document');
-          _loadDocuments();
-        },
-        backgroundColor: AppColors.accent,
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-    );
-  }
-
-  Widget _buildBottomNav(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border(top: BorderSide(color: AppColors.border, width: 1)),
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _navItem(
-                Icons.key_rounded,
-                'Passwords',
-                false,
-                () => Navigator.pushReplacementNamed(context, '/dashboard'),
-              ),
-              _navItem(Icons.folder_rounded, 'Documents', true, () {}),
-              const SizedBox(width: 48),
-              _navItem(
-                Icons.backup_rounded,
-                'Backup',
-                false,
-                () => Navigator.pushNamed(context, '/backup'),
-              ),
-              _navItem(
-                Icons.settings_rounded,
-                'Settings',
-                false,
-                () => Navigator.pushNamed(context, '/settings'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _navItem(
-    IconData icon,
-    String label,
-    bool isActive,
-    VoidCallback onTap,
-  ) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              color: isActive ? AppColors.primary : AppColors.textSecondary,
-              size: 22,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: GoogleFonts.poppins(
-                color: isActive ? AppColors.primary : AppColors.textSecondary,
-                fontSize: 10,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-              ),
-            ),
-          ],
         ),
       ),
     );

@@ -3,6 +3,8 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
+import '../services/database_helper.dart';
+import '../services/settings_service.dart';
 
 class ChangeMasterPasswordScreen extends StatefulWidget {
   const ChangeMasterPasswordScreen({super.key});
@@ -17,24 +19,76 @@ class _ChangeMasterPasswordScreenState
   final _currentCtrl = TextEditingController();
   final _newCtrl = TextEditingController();
   final _confirmCtrl = TextEditingController();
+  final _hintCtrl = TextEditingController();
   bool _saving = false;
-  double _strength = 0;
 
-  void _onNewPasswordChanged(String value) {
-    double s = 0;
-    if (value.length >= 8) s += 0.25;
-    if (value.contains(RegExp(r'[A-Z]'))) s += 0.25;
-    if (value.contains(RegExp(r'[0-9]'))) s += 0.25;
-    if (value.contains(RegExp(r'[!@#\$%^&*]'))) s += 0.25;
-    setState(() => _strength = s);
+  @override
+  void initState() {
+    super.initState();
+    _loadHint();
+  }
+
+  void _loadHint() async {
+    final settings = await SettingsService.instance.loadSettings();
+    final hint = settings['password_hint'] as String? ?? '';
+    _hintCtrl.text = hint;
+  }
+
+  @override
+  void dispose() {
+    _currentCtrl.dispose();
+    _newCtrl.dispose();
+    _confirmCtrl.dispose();
+    _hintCtrl.dispose();
+    super.dispose();
   }
 
   void _save() async {
+    final current = _currentCtrl.text;
+    final newPass = _newCtrl.text;
+    final confirm = _confirmCtrl.text;
+
+    if (current.isEmpty || newPass.isEmpty || confirm.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please fill all fields', style: GoogleFonts.poppins()), backgroundColor: AppColors.error),
+      );
+      return;
+    }
+
+    if (newPass.length < 8 ||
+        !newPass.contains(RegExp(r'[A-Z]')) ||
+        !newPass.contains(RegExp(r'[0-9]')) ||
+        !newPass.contains(RegExp(r'[!@#\$%^&*]'))) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('New password does not meet requirements.', style: GoogleFonts.poppins()), backgroundColor: AppColors.error),
+      );
+      return;
+    }
+
+    if (newPass != confirm) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Passwords do not match.', style: GoogleFonts.poppins()), backgroundColor: AppColors.error),
+      );
+      return;
+    }
+
     setState(() => _saving = true);
-    await Future.delayed(const Duration(seconds: 2));
+    final success = await DatabaseHelper.instance.changeMasterPassword(current, newPass);
+
     if (mounted) {
       setState(() => _saving = false);
-      _showSuccess();
+      if (success) {
+        final hint = _hintCtrl.text.trim();
+        await SettingsService.instance.saveSetting('password_hint', hint.isEmpty ? null : hint);
+        _showSuccess();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Incorrect current password or change failed.', style: GoogleFonts.poppins()),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
     }
   }
 
@@ -211,9 +265,14 @@ class _ChangeMasterPasswordScreenState
                       const SizedBox(height: 12),
                       ValueListenableBuilder(
                         valueListenable: _newCtrl,
-                        builder: (_, v, _) {
-                          _onNewPasswordChanged(_newCtrl.text);
-                          return PasswordStrengthIndicator(strength: _strength);
+                        builder: (_, value, _) {
+                          final text = value.text;
+                          double s = 0;
+                          if (text.length >= 8) s += 0.25;
+                          if (text.contains(RegExp(r'[A-Z]'))) s += 0.25;
+                          if (text.contains(RegExp(r'[0-9]'))) s += 0.25;
+                          if (text.contains(RegExp(r'[!@#\$%^&*]'))) s += 0.25;
+                          return PasswordStrengthIndicator(strength: s);
                         },
                       ).animate().fadeIn(delay: 400.ms),
                       const SizedBox(height: 16),
@@ -228,6 +287,12 @@ class _ChangeMasterPasswordScreenState
                         isPassword: true,
                         controller: _confirmCtrl,
                       ).animate().fadeIn(delay: 460.ms),
+                      const SizedBox(height: 20),
+                      SVaultTextField(
+                        label: 'Password Hint (Optional)',
+                        hint: 'Enter a reminder for your password',
+                        controller: _hintCtrl,
+                      ).animate().fadeIn(delay: 500.ms),
                       const SizedBox(height: 32),
                       GradientButton(
                             label: 'Save Changes',

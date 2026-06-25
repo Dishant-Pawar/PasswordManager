@@ -11,15 +11,20 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import '../services/settings_service.dart';
+import '../services/database_helper.dart';
+
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
+  State<SettingsScreen> createState() => SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
+class SettingsScreenState extends State<SettingsScreen> {
+  void reload() {
+    _loadSettings();
+  }
   bool _darkMode = true;
   bool _biometric = true;
   bool _autoBackup = false;
@@ -28,6 +33,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _profileEmail = 'john@example.com';
   String? _profilePhotoUrl;
   String? _profilePhotoPath;
+  String _passwordHint = '';
 
   @override
   void initState() {
@@ -46,6 +52,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _profileEmail = settings['profile_email'] as String? ?? 'john@example.com';
       _profilePhotoUrl = settings['profile_photo_url'] as String? ?? settings['gdrive_photo'] as String?;
       _profilePhotoPath = settings['profile_photo_path'] as String?;
+      _passwordHint = settings['password_hint'] as String? ?? '';
     });
   }
 
@@ -204,6 +211,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               indent: 68,
                             ),
                             SettingsTile(
+                              title: 'Update Password Hint',
+                              icon: Icons.help_outline_rounded,
+                              iconColor: AppColors.primary,
+                              onTap: _showUpdateHintDialog,
+                            ),
+                            const Divider(
+                              color: AppColors.border,
+                              height: 1,
+                              indent: 68,
+                            ),
+                            SettingsTile(
                               title: 'Dark Mode',
                               icon: Icons.dark_mode_rounded,
                               iconColor: AppColors.accent,
@@ -297,6 +315,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           onTap: () {},
                         ),
                       ).animate().fadeIn(delay: 540.ms),
+                      const SizedBox(height: 20),
+                      // Account section
+                      _SectionTitle(
+                        title: 'Account',
+                      ).animate().fadeIn(delay: 580.ms),
+                      SolidCard(
+                        padding: EdgeInsets.zero,
+                        child: SettingsTile(
+                          title: 'Logout',
+                          subtitle: 'Securely lock and exit your vault',
+                          icon: Icons.logout_rounded,
+                          iconColor: AppColors.error,
+                          onTap: _showLogoutConfirmDialog,
+                        ),
+                      ).animate().fadeIn(delay: 620.ms),
                       const SizedBox(height: 100),
                     ],
                   ),
@@ -304,79 +337,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ],
           ),
-        ),
-      ),
-      bottomNavigationBar: _buildBottomNav(context),
-    );
-  }
-
-  Widget _buildBottomNav(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border(top: BorderSide(color: AppColors.border, width: 1)),
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _navItem(
-                Icons.key_rounded,
-                'Passwords',
-                false,
-                () => Navigator.pushReplacementNamed(context, '/dashboard'),
-              ),
-              _navItem(
-                Icons.folder_rounded,
-                'Documents',
-                false,
-                () => Navigator.pushNamed(context, '/documents'),
-              ),
-              const SizedBox(width: 48),
-              _navItem(
-                Icons.backup_rounded,
-                'Backup',
-                false,
-                () => Navigator.pushNamed(context, '/backup'),
-              ),
-              _navItem(Icons.settings_rounded, 'Settings', true, () {}),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _navItem(
-    IconData icon,
-    String label,
-    bool isActive,
-    VoidCallback onTap,
-  ) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              color: isActive ? AppColors.primary : AppColors.textSecondary,
-              size: 22,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: GoogleFonts.poppins(
-                color: isActive ? AppColors.primary : AppColors.textSecondary,
-                fontSize: 10,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-              ),
-            ),
-          ],
         ),
       ),
     );
@@ -419,7 +379,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx),
+            onPressed: () {
+              controller.dispose();
+              Navigator.pop(ctx);
+            },
             child: Text(
               'Cancel',
               style: GoogleFonts.poppins(
@@ -437,11 +400,94 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _autoBackupPassphrase = newPassphrase;
               });
               await SettingsService.instance.saveSetting('auto_backup_passphrase', newPassphrase);
+              controller.dispose();
               navigator.pop();
               messenger.showSnackBar(
                 SnackBar(
                   content: Text(
                     'Auto backup passphrase updated.',
+                    style: GoogleFonts.poppins(),
+                  ),
+                  backgroundColor: AppColors.success,
+                ),
+              );
+            },
+            child: Text(
+              'Save',
+              style: GoogleFonts.poppins(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showUpdateHintDialog() {
+    final controller = TextEditingController(text: _passwordHint);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Update Password Hint',
+          style: GoogleFonts.poppins(
+            color: AppColors.textPrimary,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Specify a password hint to help you remember your master password if you forget it. This is stored locally.',
+              style: GoogleFonts.poppins(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(height: 16),
+            SVaultTextField(
+              label: 'Password Hint',
+              hint: 'Enter your password hint',
+              controller: controller,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              controller.dispose();
+              Navigator.pop(ctx);
+            },
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.poppins(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              final newHint = controller.text.trim();
+              final messenger = ScaffoldMessenger.of(context);
+              final navigator = Navigator.of(ctx);
+              setState(() {
+                _passwordHint = newHint;
+              });
+              await SettingsService.instance.saveSetting('password_hint', newHint.isEmpty ? null : newHint);
+              controller.dispose();
+              navigator.pop();
+              messenger.showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Password hint updated.',
                     style: GoogleFonts.poppins(),
                   ),
                   backgroundColor: AppColors.success,
@@ -641,7 +687,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(ctx),
+                onPressed: () {
+                  nameController.dispose();
+                  emailController.dispose();
+                  photoUrlController.dispose();
+                  Navigator.pop(ctx);
+                },
                 child: Text(
                   'Cancel',
                   style: GoogleFonts.poppins(
@@ -676,6 +727,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     await SettingsService.instance.saveSetting('profile_photo_url', newPhotoUrl);
                     await SettingsService.instance.saveSetting('profile_photo_path', finalPhotoPath);
 
+                    nameController.dispose();
+                    emailController.dispose();
+                    photoUrlController.dispose();
                     navigator.pop();
 
                     messenger.showSnackBar(
@@ -887,6 +941,59 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           );
         },
+      ),
+    );
+  }
+
+  void _showLogoutConfirmDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Logout',
+          style: GoogleFonts.poppins(
+            color: AppColors.textPrimary,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to log out? This will lock your vault, and you will need your master password to unlock it again.',
+          style: GoogleFonts.poppins(
+            color: AppColors.textSecondary,
+            fontSize: 13,
+            height: 1.4,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.poppins(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              final navigator = Navigator.of(context);
+              Navigator.pop(ctx);
+              await DatabaseHelper.instance.logout();
+              navigator.pushNamedAndRemoveUntil('/login', (route) => false);
+            },
+            child: Text(
+              'Logout',
+              style: GoogleFonts.poppins(
+                color: AppColors.error,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

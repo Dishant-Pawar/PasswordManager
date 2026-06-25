@@ -3,6 +3,8 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
+import '../services/database_helper.dart';
+import '../services/settings_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -16,12 +18,180 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _loading = false;
 
   void _unlock() async {
+    final password = _controller.text;
+    if (password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Please enter your master password.', style: GoogleFonts.poppins()),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
     setState(() => _loading = true);
-    await Future.delayed(const Duration(milliseconds: 800));
+    final isCorrect = await DatabaseHelper.instance.verifyAndOpenDatabase(password);
+    
     if (mounted) {
       setState(() => _loading = false);
-      Navigator.pushReplacementNamed(context, '/dashboard');
+      if (isCorrect) {
+        Navigator.pushReplacementNamed(context, '/dashboard');
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Incorrect master password. Access denied.', style: GoogleFonts.poppins()),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
     }
+  }
+
+  void _showForgotDialog() async {
+    final settings = await SettingsService.instance.loadSettings();
+    final hint = settings['password_hint'] as String? ?? '';
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: AppColors.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text(
+            'Forgot Password',
+            style: GoogleFonts.poppins(
+              color: AppColors.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Because SecureVault uses zero-knowledge end-to-end encryption, we do not store your master password and cannot reset it or email it to you.',
+                style: GoogleFonts.poppins(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Password Hint:',
+                style: GoogleFonts.poppins(
+                  color: AppColors.textPrimary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: AppColors.surface2,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.border, width: 1),
+                ),
+                child: Text(
+                  hint.isNotEmpty ? hint : 'No password hint was set up.',
+                  style: GoogleFonts.poppins(
+                    color: hint.isNotEmpty ? AppColors.primary : AppColors.textSecondary,
+                    fontSize: 14,
+                    fontWeight: hint.isNotEmpty ? FontWeight.w600 : FontWeight.normal,
+                    fontStyle: hint.isNotEmpty ? null : FontStyle.italic,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'If you cannot remember your password and have no backup, you must reset your vault to create a new one. This will permanently delete all your stored data.',
+                style: GoogleFonts.poppins(
+                  color: AppColors.error,
+                  fontSize: 12,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(
+                'Close',
+                style: GoogleFonts.poppins(
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _showResetConfirmDialog();
+              },
+              child: Text(
+                'Reset Vault',
+                style: GoogleFonts.poppins(
+                  color: AppColors.error,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showResetConfirmDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return _VaultResetDialog(
+          onConfirm: _performVaultReset,
+        );
+      },
+    );
+  }
+
+  void _performVaultReset() async {
+    setState(() => _loading = true);
+
+    try {
+      await DatabaseHelper.instance.resetVault();
+      if (mounted) {
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Vault reset successful. All data cleared.', style: GoogleFonts.poppins()),
+            backgroundColor: AppColors.success,
+          ),
+        );
+        Navigator.pushNamedAndRemoveUntil(context, '/create-master', (route) => false);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to reset vault: $e', style: GoogleFonts.poppins()),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   @override
@@ -198,6 +368,117 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _VaultResetDialog extends StatefulWidget {
+  final VoidCallback onConfirm;
+
+  const _VaultResetDialog({required this.onConfirm});
+
+  @override
+  State<_VaultResetDialog> createState() => _VaultResetDialogState();
+}
+
+class _VaultResetDialogState extends State<_VaultResetDialog> {
+  final _confirmController = TextEditingController();
+  bool _isResetButtonEnabled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _confirmController.addListener(_onTextChanged);
+  }
+
+  void _onTextChanged() {
+    final val = _confirmController.text.trim();
+    setState(() {
+      _isResetButtonEnabled = val == 'RESET';
+    });
+  }
+
+  @override
+  void dispose() {
+    _confirmController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: AppColors.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: Row(
+        children: [
+          const Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 24),
+          const SizedBox(width: 8),
+          Text(
+            'Reset Vault?',
+            style: GoogleFonts.poppins(
+              color: AppColors.error,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'This action is irreversible. All passwords, secrets, documents, and profile photos will be permanently deleted from this device.',
+            style: GoogleFonts.poppins(
+              color: AppColors.textPrimary,
+              fontSize: 13,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'To confirm, type "RESET" below:',
+            style: GoogleFonts.poppins(
+              color: AppColors.textSecondary,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 10),
+          SVaultTextField(
+            label: 'Confirm resetting',
+            hint: 'Type RESET',
+            controller: _confirmController,
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(
+            'Cancel',
+            style: GoogleFonts.poppins(
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        TextButton(
+          onPressed: _isResetButtonEnabled
+              ? () {
+                  Navigator.pop(context);
+                  widget.onConfirm();
+                }
+              : null,
+          child: Text(
+            'DELETE EVERYTHING',
+            style: GoogleFonts.poppins(
+              color: _isResetButtonEnabled ? AppColors.error : AppColors.textHint,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
-import 'dart:ui';
+import '../services/settings_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -15,11 +15,23 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, '/login');
-      }
-    });
+    _checkVaultStatus();
+  }
+
+  void _checkVaultStatus() async {
+    await Future.delayed(const Duration(seconds: 3));
+    if (!mounted) return;
+
+    final settings = await SettingsService.instance.loadSettings();
+    final hasSalt = settings['db_salt'] != null;
+
+    if (!mounted) return;
+
+    if (hasSalt) {
+      Navigator.pushReplacementNamed(context, '/login');
+    } else {
+      Navigator.pushReplacementNamed(context, '/create-master');
+    }
   }
 
   @override
